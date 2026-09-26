@@ -1,0 +1,10 @@
+{
+  "name": "featurelens",
+  "version": "1.0.0",
+  "description": "Evidence-based HTML documentation for one feature of a repository. Claude Code analyzes the code with its own tools; the bundled featurelens CLI validates the manifest against the repository and renders and writes the document.",
+  "author": {
+    "name": "FeatureLens contributors"
+  },
+  "license": "MIT",
+  "keywords": ["documentation", "architecture", "impact-analysis", "codebase-onboarding", "diagrams", "evidence"]
+}

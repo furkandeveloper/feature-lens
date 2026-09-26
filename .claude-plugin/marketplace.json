@@ -1,0 +1,16 @@
+{
+  "name": "featurelens",
+  "owner": {
+    "name": "FeatureLens contributors"
+  },
+  "metadata": {
+    "description": "FeatureLens: visual, evidence-backed feature documentation for Claude Code."
+  },
+  "plugins": [
+    {
+      "name": "featurelens",
+      "source": "./",
+      "description": "Document one feature of a repository as an evidence-backed HTML page, and keep it current as the code changes."
+    }
+  ]
+}

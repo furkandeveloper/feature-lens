@@ -1,0 +1,1284 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "feature": {
+      "id": "payment-flow",
+      "name": "Order payment flow",
+      "description": "How an existing order is paid with a card token, from the HTTP route to the gateway charge and the database writes.",
+      "mode": "existing-feature",
+      "request": "Analyze the payment flow and explain how it works."
+    },
+    "repository": {
+      "name": "sample-shop"
+    },
+    "tool": {
+      "name": "featurelens",
+      "version": "0.2.0"
+    },
+    "generatedAt": "2026-09-23T19:00:00.000Z",
+    "updatedAt": "2026-09-23T20:15:00.000Z",
+    "generatedBy": {
+      "source": "unknown"
+    },
+    "contributors": []
+  },
+  "evidence": [
+    {
+      "id": "ev-register",
+      "file": "src/payment/payment.controller.js",
+      "startLine": 3,
+      "endLine": 10,
+      "symbol": "registerPaymentRoutes",
+      "kind": "definition",
+      "explanation": "Registers the payment routes and builds PaymentService from the injected deps.",
+      "confidence": "high",
+      "snippetHash": "sha256:410b4da2252d534096728e7076ee43b321162d931ea03b75fff541b7e9f0f9f3"
+    },
+    {
+      "id": "ev-service-deps",
+      "file": "src/payment/payment.controller.js",
+      "startLine": 3,
+      "endLine": 4,
+      "symbol": "new PaymentService(deps)",
+      "kind": "call-site",
+      "explanation": "PaymentService receives an opaque deps object; the concrete implementations are chosen by the caller.",
+      "confidence": "high",
+      "snippetHash": "sha256:6b28ae299ba4cd37851f2e3fd9fa4b9cb8c851030f2e2fb423fe8fc8f2fdcc37"
+    },
+    {
+      "id": "ev-route",
+      "file": "src/payment/payment.controller.js",
+      "startLine": 6,
+      "endLine": 9,
+      "symbol": "router.post",
+      "kind": "definition",
+      "explanation": "POST /orders/:orderId/pay delegates to payOrder and maps ok to 200, anything else to 402.",
+      "confidence": "high",
+      "snippetHash": "sha256:d8c24876c068bc46c65b38b8b9c69deb990a6639d86f0f43d7c30134bea67ce9"
+    },
+    {
+      "id": "ev-service-ctor",
+      "file": "src/payment/payment.service.js",
+      "startLine": 2,
+      "endLine": 6,
+      "symbol": "constructor({ orders, payments, gateway })",
+      "kind": "definition",
+      "explanation": "The three collaborators PaymentService depends on, by name only.",
+      "confidence": "high",
+      "snippetHash": "sha256:30d4f8a67568257c5176563be490372acab45dbfe5dc7ff0cbd430cc19c2b19a"
+    },
+    {
+      "id": "ev-pay-order",
+      "file": "src/payment/payment.service.js",
+      "startLine": 8,
+      "endLine": 30,
+      "symbol": "payOrder",
+      "kind": "definition",
+      "explanation": "The whole payment flow: load, guard, charge, record, mark paid.",
+      "confidence": "high",
+      "snippetHash": "sha256:d74934494275e2fadace4c29ec8b5254d7aba8d0a631c7355eb1292e5264c9e7"
+    },
+    {
+      "id": "ev-order-guards",
+      "file": "src/payment/payment.service.js",
+      "startLine": 9,
+      "endLine": 11,
+      "symbol": "ORDER_NOT_PAYABLE",
+      "kind": "logic",
+      "explanation": "Missing and non-pending orders are rejected before any gateway call.",
+      "confidence": "high",
+      "snippetHash": "sha256:fb2dd5c32edeaaaee0fe65732d79fa3a36f699441cb190957f3937f0d30b6228"
+    },
+    {
+      "id": "ev-charge-call",
+      "file": "src/payment/payment.service.js",
+      "startLine": 13,
+      "endLine": 17,
+      "symbol": "this.gateway.charge",
+      "kind": "call-site",
+      "explanation": "Charges order.total in order.currency using the card token as source.",
+      "confidence": "high",
+      "snippetHash": "sha256:baa78882be1fda2e0b3236acad9c65a2fa1f2d6db10c727c57e454f07519c1ff"
+    },
+    {
+      "id": "ev-payment-insert",
+      "file": "src/payment/payment.service.js",
+      "startLine": 19,
+      "endLine": 24,
+      "symbol": "this.payments.insert",
+      "kind": "call-site",
+      "explanation": "A payment row is written for every charge attempt; status depends on charge.succeeded. The card token is not part of the row.",
+      "confidence": "high",
+      "snippetHash": "sha256:3fcf77a753c1dbd784443e583514d05e293679381743ce0968ee5acecb4e81bf"
+    },
+    {
+      "id": "ev-declined",
+      "file": "src/payment/payment.service.js",
+      "startLine": 26,
+      "endLine": 26,
+      "symbol": "CARD_DECLINED",
+      "kind": "logic",
+      "explanation": "Declined charges return early, after the payment row is written and before the order is updated.",
+      "confidence": "high",
+      "snippetHash": "sha256:093d047e6b5f71b4f3ad0789703e995c09a60a92a703f41ea3e4df1eca2da6d6"
+    },
+    {
+      "id": "ev-mark-paid",
+      "file": "src/payment/payment.service.js",
+      "startLine": 28,
+      "endLine": 29,
+      "symbol": "updateStatus(orderId, 'paid')",
+      "kind": "call-site",
+      "explanation": "Only a successful charge moves the order to 'paid'.",
+      "confidence": "high",
+      "snippetHash": "sha256:d791f554ffe2cbbc046066475d937305abdc8ffaf47c43d262569f0b12ab55fa"
+    },
+    {
+      "id": "ev-gateway",
+      "file": "src/payment/gateway.client.js",
+      "startLine": 7,
+      "endLine": 13,
+      "symbol": "charge",
+      "kind": "definition",
+      "explanation": "GatewayClient.charge posts to the gateway and reduces the response to id and succeeded.",
+      "confidence": "high",
+      "snippetHash": "sha256:d54093b45dab03eb033d919604d4564909ea7150d2d9f52695776c92909a893d"
+    },
+    {
+      "id": "ev-gateway-url",
+      "file": "src/payment/gateway.client.js",
+      "startLine": 8,
+      "endLine": 11,
+      "symbol": "https://gateway.example/v1/charges",
+      "kind": "call-site",
+      "explanation": "The external charges endpoint, authenticated with a bearer API key.",
+      "confidence": "high",
+      "snippetHash": "sha256:3b6bc3797f40129fac7ebd6c9f81da3c83b1028a640e77b03f14ba7e09465025"
+    },
+    {
+      "id": "ev-gateway-result",
+      "file": "src/payment/gateway.client.js",
+      "startLine": 12,
+      "endLine": 12,
+      "symbol": "response.body.status === 'succeeded'",
+      "kind": "logic",
+      "explanation": "Success is decided only by the response body status; the HTTP status code is not checked.",
+      "confidence": "medium",
+      "snippetHash": "sha256:258e2687a8a9674f6e1a22872f691af0ceab2bed88fefd6603ecc0a0d8ee9747"
+    },
+    {
+      "id": "ev-payment-repo",
+      "file": "src/payment/payment.repository.js",
+      "startLine": 6,
+      "endLine": 11,
+      "symbol": "INSERT INTO payments",
+      "kind": "data-schema",
+      "explanation": "Columns of the payments table, as implied by the insert. The table definition itself is not in the repository.",
+      "confidence": "medium",
+      "snippetHash": "sha256:ce82a2c13968d2997b6d820d9fe8253d16ca24178404ff013f70e8f44febcc0f"
+    },
+    {
+      "id": "ev-order-find",
+      "file": "src/orders/order.repository.js",
+      "startLine": 6,
+      "endLine": 9,
+      "symbol": "findById",
+      "kind": "definition",
+      "explanation": "Loads one order row by id, or null.",
+      "confidence": "high",
+      "snippetHash": "sha256:73ea96d6ddc9d207dd2f72ed586948abc27946f023a6d5f3ed81e4658808543d"
+    },
+    {
+      "id": "ev-order-update",
+      "file": "src/orders/order.repository.js",
+      "startLine": 11,
+      "endLine": 13,
+      "symbol": "UPDATE orders",
+      "kind": "definition",
+      "explanation": "Sets orders.status for one order.",
+      "confidence": "high",
+      "snippetHash": "sha256:03b034703aaf321db1ea3ac461a9affebe7878673d13d7433217c599d08ac4ec"
+    }
+  ],
+  "analysis": {
+    "scope": {
+      "summary": "Paying for an existing order with a card token: HTTP route, order checks, gateway charge, payment record, order status update.",
+      "inScope": [
+        "POST /orders/:orderId/pay",
+        "PaymentService.payOrder",
+        "Gateway charge call",
+        "payments and orders table writes"
+      ],
+      "outOfScope": [
+        "Order creation",
+        "Refunds (not implemented)",
+        "Gateway webhooks (none found)"
+      ],
+      "entryPoints": [
+        "pay-route"
+      ]
+    },
+    "files": [
+      {
+        "path": "src/payment/payment.controller.js",
+        "role": "primary",
+        "reason": "HTTP entry point and PaymentService construction.",
+        "evidence": [
+          "ev-register"
+        ]
+      },
+      {
+        "path": "src/payment/payment.service.js",
+        "role": "primary",
+        "reason": "All payment orchestration logic.",
+        "evidence": [
+          "ev-pay-order"
+        ]
+      },
+      {
+        "path": "src/payment/gateway.client.js",
+        "role": "supporting",
+        "reason": "Client for the external card gateway.",
+        "evidence": [
+          "ev-gateway"
+        ]
+      },
+      {
+        "path": "src/payment/payment.repository.js",
+        "role": "supporting",
+        "reason": "Persists payment attempts.",
+        "evidence": [
+          "ev-payment-repo"
+        ]
+      },
+      {
+        "path": "src/orders/order.repository.js",
+        "role": "supporting",
+        "reason": "Reads orders and updates their status.",
+        "evidence": [
+          "ev-order-find",
+          "ev-order-update"
+        ]
+      }
+    ],
+    "components": [
+      {
+        "id": "payment-module",
+        "name": "src/payment",
+        "kind": "module",
+        "summary": "Payment route, service, gateway client and payment persistence.",
+        "certainty": "observed",
+        "evidence": [
+          "ev-register"
+        ]
+      },
+      {
+        "id": "pay-route",
+        "name": "POST /orders/:orderId/pay",
+        "kind": "endpoint",
+        "parent": "payment-module",
+        "endpoint": {
+          "protocol": "http",
+          "method": "POST",
+          "path": "/orders/:orderId/pay"
+        },
+        "summary": "HTTP entry point. Delegates to PaymentService and maps ok to 200, failure to 402.",
+        "certainty": "observed",
+        "evidence": [
+          "ev-route"
+        ]
+      },
+      {
+        "id": "payment-service",
+        "name": "PaymentService",
+        "kind": "service",
+        "parent": "payment-module",
+        "summary": "Orchestrates order validation, charging, payment persistence and order status update.",
+        "certainty": "observed",
+        "evidence": [
+          "ev-service-ctor",
+          "ev-pay-order"
+        ]
+      },
+      {
+        "id": "gateway-client",
+        "name": "GatewayClient",
+        "kind": "class",
+        "parent": "payment-module",
+        "summary": "Wraps the card gateway charges API.",
+        "certainty": "observed",
+        "evidence": [
+          "ev-gateway"
+        ]
+      },
+      {
+        "id": "payment-repo",
+        "name": "PaymentRepository",
+        "kind": "datastore",
+        "parent": "payment-module",
+        "summary": "Writes rows to the payments table.",
+        "certainty": "observed",
+        "evidence": [
+          "ev-payment-repo"
+        ]
+      },
+      {
+        "id": "order-repo",
+        "name": "OrderRepository",
+        "kind": "datastore",
+        "summary": "Reads orders and updates their status.",
+        "certainty": "observed",
+        "evidence": [
+          "ev-order-find",
+          "ev-order-update"
+        ]
+      },
+      {
+        "id": "payment-record",
+        "name": "Payment record",
+        "kind": "model",
+        "summary": "A row in payments: order_id, gateway_charge_id, amount, status (captured or failed).",
+        "certainty": "inferred",
+        "evidence": [
+          "ev-payment-repo",
+          "ev-payment-insert"
+        ]
+      },
+      {
+        "id": "card-gateway",
+        "name": "Card gateway charges API",
+        "kind": "external",
+        "dependency": {
+          "name": "gateway.example /v1/charges",
+          "ecosystem": "http-api"
+        },
+        "summary": "Third-party service that performs the card charge.",
+        "certainty": "observed",
+        "evidence": [
+          "ev-gateway-url"
+        ]
+      }
+    ],
+    "relationships": [
+      {
+        "id": "r-route-service",
+        "from": "pay-route",
+        "to": "payment-service",
+        "kind": "calls",
+        "label": "payOrder(orderId, cardToken)",
+        "certainty": "observed",
+        "evidence": [
+          "ev-route"
+        ]
+      },
+      {
+        "id": "r-service-orders",
+        "from": "payment-service",
+        "to": "order-repo",
+        "kind": "calls",
+        "label": "findById / updateStatus",
+        "certainty": "inferred",
+        "evidence": [
+          "ev-order-guards",
+          "ev-mark-paid",
+          "ev-service-deps"
+        ]
+      },
+      {
+        "id": "r-service-gateway",
+        "from": "payment-service",
+        "to": "gateway-client",
+        "kind": "calls",
+        "label": "charge()",
+        "certainty": "inferred",
+        "evidence": [
+          "ev-charge-call",
+          "ev-service-deps"
+        ]
+      },
+      {
+        "id": "r-service-payments",
+        "from": "payment-service",
+        "to": "payment-repo",
+        "kind": "calls",
+        "label": "insert()",
+        "certainty": "inferred",
+        "evidence": [
+          "ev-payment-insert",
+          "ev-service-deps"
+        ]
+      },
+      {
+        "id": "r-gateway-api",
+        "from": "gateway-client",
+        "to": "card-gateway",
+        "kind": "calls",
+        "label": "POST /v1/charges",
+        "certainty": "observed",
+        "evidence": [
+          "ev-gateway-url"
+        ]
+      },
+      {
+        "id": "r-repo-record",
+        "from": "payment-repo",
+        "to": "payment-record",
+        "kind": "writes",
+        "label": "INSERT INTO payments",
+        "certainty": "observed",
+        "evidence": [
+          "ev-payment-repo"
+        ]
+      }
+    ],
+    "findings": [
+      {
+        "id": "f-overview",
+        "section": "overview",
+        "title": "Synchronous charge-then-record flow",
+        "body": "Paying an order runs in a single request: the order is loaded and checked, the card is charged through the gateway, a payment row is written, and the order is marked paid only if the charge succeeded.",
+        "certainty": "observed",
+        "evidence": [
+          "ev-pay-order"
+        ]
+      },
+      {
+        "id": "f-guards",
+        "section": "implementation",
+        "title": "Only pending orders can be paid",
+        "body": "Missing orders return ORDER_NOT_FOUND and orders whose status is not 'pending' return ORDER_NOT_PAYABLE before any gateway call is made.",
+        "certainty": "observed",
+        "evidence": [
+          "ev-order-guards"
+        ]
+      },
+      {
+        "id": "f-failed-recorded",
+        "section": "implementation",
+        "title": "Declined charges are persisted",
+        "body": "A payment row is written for both successful and declined charges, with status 'captured' or 'failed'.",
+        "certainty": "observed",
+        "evidence": [
+          "ev-payment-insert",
+          "ev-declined"
+        ]
+      },
+      {
+        "id": "f-token-not-stored",
+        "section": "implementation",
+        "title": "The card token is not stored",
+        "body": "The card token is passed to the gateway as the charge source but is not part of the payment row.",
+        "certainty": "observed",
+        "evidence": [
+          "ev-charge-call",
+          "ev-payment-insert",
+          "ev-payment-repo"
+        ]
+      },
+      {
+        "id": "f-gateway-success",
+        "section": "implementation",
+        "title": "Success is read from the response body only",
+        "body": "GatewayClient treats a charge as succeeded when response.body.status is 'succeeded'; it does not look at the HTTP status code.",
+        "certainty": "observed",
+        "evidence": [
+          "ev-gateway-result"
+        ]
+      },
+      {
+        "id": "f-di-wiring",
+        "section": "architecture",
+        "title": "Dependencies are injected, wiring not visible",
+        "body": "PaymentService receives orders, payments and gateway through its constructor. The mapping to OrderRepository, PaymentRepository and GatewayClient is inferred from method names; the composition root is not in this repository.",
+        "certainty": "inferred",
+        "evidence": [
+          "ev-service-deps",
+          "ev-service-ctor"
+        ]
+      }
+    ],
+    "impact": {
+      "summary": "Existing-feature analysis. The items show what a change to the payment flow would most likely touch, plus one proposed addition that addresses the double-charge risk.",
+      "items": [
+        {
+          "id": "imp-service",
+          "componentId": "payment-service",
+          "level": "high",
+          "change": "review",
+          "reason": "All payment logic and the ordering of side effects live in payOrder.",
+          "certainty": "observed",
+          "evidence": [
+            "ev-pay-order"
+          ]
+        },
+        {
+          "id": "imp-payment-repo",
+          "componentId": "payment-repo",
+          "level": "medium",
+          "change": "review",
+          "reason": "Payment status values are written here; new statuses need matching table support.",
+          "certainty": "inferred",
+          "evidence": [
+            "ev-payment-repo"
+          ]
+        },
+        {
+          "id": "imp-route",
+          "componentId": "pay-route",
+          "level": "low",
+          "change": "review",
+          "reason": "The route maps result.ok to 200 or 402; new result shapes change the HTTP contract.",
+          "certainty": "observed",
+          "evidence": [
+            "ev-route"
+          ]
+        },
+        {
+          "id": "imp-idempotency",
+          "file": "src/payment/idempotency.store.js",
+          "level": "medium",
+          "change": "add",
+          "reason": "A store for idempotency keys would let payOrder reject a repeated request before charging again.",
+          "certainty": "proposed",
+          "evidence": []
+        }
+      ],
+      "relationships": [
+        {
+          "id": "ir-service-repo",
+          "from": "imp-service",
+          "to": "imp-payment-repo",
+          "reason": "Statuses written by payOrder must be accepted by the payments table.",
+          "certainty": "inferred",
+          "evidence": [
+            "ev-payment-insert",
+            "ev-payment-repo"
+          ]
+        },
+        {
+          "id": "ir-service-route",
+          "from": "imp-service",
+          "to": "imp-route",
+          "reason": "The route turns payOrder results into HTTP responses.",
+          "certainty": "observed",
+          "evidence": [
+            "ev-route"
+          ]
+        },
+        {
+          "id": "ir-idempotency-service",
+          "from": "imp-idempotency",
+          "to": "imp-service",
+          "reason": "payOrder would have to check and record the key around the gateway call.",
+          "certainty": "proposed",
+          "evidence": [
+            "ev-charge-call"
+          ]
+        }
+      ]
+    },
+    "risks": [
+      {
+        "id": "risk-no-transaction",
+        "title": "Charge can succeed while the order stays pending",
+        "body": "The gateway charge, payment insert and order update are separate awaited calls with no transaction or compensation. If insert or updateStatus throws after a successful charge, the customer is charged but the order is not marked paid.",
+        "severity": "high",
+        "certainty": "inferred",
+        "evidence": [
+          "ev-charge-call",
+          "ev-payment-insert",
+          "ev-mark-paid"
+        ]
+      },
+      {
+        "id": "risk-double-charge",
+        "title": "No idempotency on repeated requests",
+        "body": "Two concurrent requests for the same pending order can both pass the status check and both charge the card; no idempotency key or lock is visible.",
+        "severity": "high",
+        "certainty": "inferred",
+        "evidence": [
+          "ev-order-guards",
+          "ev-charge-call"
+        ]
+      }
+    ],
+    "testing": [
+      {
+        "id": "t-guards",
+        "title": "Guard clauses",
+        "body": "Cover missing order, non-pending order, declined charge and successful charge; assert no gateway call for the first two.",
+        "certainty": "proposed",
+        "evidence": [
+          "ev-order-guards"
+        ]
+      },
+      {
+        "id": "t-partial-failure",
+        "title": "Partial failure after charge",
+        "body": "Simulate updateStatus throwing after a successful charge to document current behavior.",
+        "certainty": "proposed",
+        "evidence": []
+      }
+    ],
+    "unknowns": [
+      {
+        "id": "u-wiring",
+        "kind": "question",
+        "statement": "Which concrete implementations are injected into PaymentService?",
+        "reason": "No composition root or dependency container exists in the analyzed source.",
+        "evidence": [
+          "ev-service-deps"
+        ]
+      },
+      {
+        "id": "u-gateway-errors",
+        "kind": "question",
+        "statement": "How does the gateway client behave on network errors or non-2xx responses?",
+        "reason": "GatewayClient does not check the response status; behavior depends on the injected httpClient, which is not in the repository.",
+        "evidence": [
+          "ev-gateway",
+          "ev-gateway-result"
+        ]
+      },
+      {
+        "id": "u-no-schema",
+        "kind": "limitation",
+        "statement": "The database schema was not analyzed.",
+        "reason": "The repository has no migrations or table definitions; table shapes are inferred from queries only."
+      }
+    ]
+  },
+  "visualizations": {
+    "architecture": [
+      {
+        "id": "arch-payment",
+        "title": "Payment components",
+        "groups": [
+          {
+            "id": "http",
+            "label": "HTTP"
+          },
+          {
+            "id": "domain",
+            "label": "Domain"
+          },
+          {
+            "id": "data",
+            "label": "Data access"
+          },
+          {
+            "id": "external",
+            "label": "External"
+          }
+        ],
+        "nodes": [
+          {
+            "componentId": "pay-route",
+            "group": "http"
+          },
+          {
+            "componentId": "payment-service",
+            "group": "domain"
+          },
+          {
+            "componentId": "order-repo",
+            "group": "data"
+          },
+          {
+            "componentId": "payment-repo",
+            "group": "data"
+          },
+          {
+            "componentId": "payment-record",
+            "group": "data"
+          },
+          {
+            "componentId": "gateway-client",
+            "group": "external"
+          },
+          {
+            "componentId": "card-gateway",
+            "group": "external"
+          }
+        ],
+        "edges": [
+          "r-route-service",
+          "r-service-orders",
+          "r-service-gateway",
+          "r-service-payments",
+          "r-gateway-api",
+          "r-repo-record"
+        ]
+      }
+    ],
+    "executionFlows": [
+      {
+        "id": "exec-pay-order",
+        "title": "payOrder control flow",
+        "start": "s-load",
+        "steps": [
+          {
+            "id": "s-load",
+            "label": "Load order by id",
+            "componentId": "order-repo",
+            "next": [
+              {
+                "to": "s-found"
+              }
+            ],
+            "certainty": "observed",
+            "evidence": [
+              "ev-order-guards"
+            ]
+          },
+          {
+            "id": "s-found",
+            "label": "Order found?",
+            "componentId": "payment-service",
+            "next": [
+              {
+                "to": "s-pending",
+                "condition": "yes"
+              },
+              {
+                "to": "s-not-found",
+                "condition": "no"
+              }
+            ],
+            "certainty": "observed",
+            "evidence": [
+              "ev-order-guards"
+            ]
+          },
+          {
+            "id": "s-not-found",
+            "label": "Return ORDER_NOT_FOUND",
+            "componentId": "payment-service",
+            "certainty": "observed",
+            "evidence": [
+              "ev-order-guards"
+            ]
+          },
+          {
+            "id": "s-pending",
+            "label": "Status is 'pending'?",
+            "componentId": "payment-service",
+            "next": [
+              {
+                "to": "s-charge",
+                "condition": "yes"
+              },
+              {
+                "to": "s-not-payable",
+                "condition": "no"
+              }
+            ],
+            "certainty": "observed",
+            "evidence": [
+              "ev-order-guards"
+            ]
+          },
+          {
+            "id": "s-not-payable",
+            "label": "Return ORDER_NOT_PAYABLE",
+            "componentId": "payment-service",
+            "certainty": "observed",
+            "evidence": [
+              "ev-order-guards"
+            ]
+          },
+          {
+            "id": "s-charge",
+            "label": "Charge card through the gateway",
+            "componentId": "gateway-client",
+            "next": [
+              {
+                "to": "s-record"
+              }
+            ],
+            "certainty": "observed",
+            "evidence": [
+              "ev-charge-call"
+            ]
+          },
+          {
+            "id": "s-record",
+            "label": "Insert payment row (captured or failed)",
+            "componentId": "payment-repo",
+            "next": [
+              {
+                "to": "s-succeeded"
+              }
+            ],
+            "certainty": "observed",
+            "evidence": [
+              "ev-payment-insert"
+            ]
+          },
+          {
+            "id": "s-succeeded",
+            "label": "Charge succeeded?",
+            "componentId": "payment-service",
+            "next": [
+              {
+                "to": "s-mark-paid",
+                "condition": "yes"
+              },
+              {
+                "to": "s-declined",
+                "condition": "no"
+              }
+            ],
+            "certainty": "observed",
+            "evidence": [
+              "ev-declined"
+            ]
+          },
+          {
+            "id": "s-declined",
+            "label": "Return CARD_DECLINED",
+            "componentId": "payment-service",
+            "certainty": "observed",
+            "evidence": [
+              "ev-declined"
+            ]
+          },
+          {
+            "id": "s-mark-paid",
+            "label": "Mark order 'paid', return chargeId",
+            "componentId": "order-repo",
+            "certainty": "observed",
+            "evidence": [
+              "ev-mark-paid"
+            ]
+          }
+        ]
+      }
+    ],
+    "sequences": [
+      {
+        "id": "seq-pay",
+        "title": "Successful payment",
+        "participants": [
+          {
+            "id": "client",
+            "label": "HTTP client"
+          },
+          {
+            "id": "route",
+            "label": "Pay route",
+            "componentId": "pay-route"
+          },
+          {
+            "id": "service",
+            "label": "PaymentService",
+            "componentId": "payment-service"
+          },
+          {
+            "id": "orders",
+            "label": "OrderRepository",
+            "componentId": "order-repo"
+          },
+          {
+            "id": "gateway",
+            "label": "GatewayClient",
+            "componentId": "gateway-client"
+          },
+          {
+            "id": "payments",
+            "label": "PaymentRepository",
+            "componentId": "payment-repo"
+          }
+        ],
+        "messages": [
+          {
+            "from": "client",
+            "to": "route",
+            "label": "POST /orders/:orderId/pay",
+            "kind": "call",
+            "certainty": "observed",
+            "evidence": [
+              "ev-route"
+            ]
+          },
+          {
+            "from": "route",
+            "to": "service",
+            "label": "payOrder(orderId, cardToken)",
+            "kind": "call",
+            "certainty": "observed",
+            "evidence": [
+              "ev-route"
+            ]
+          },
+          {
+            "from": "service",
+            "to": "orders",
+            "label": "findById(orderId)",
+            "kind": "call",
+            "certainty": "observed",
+            "evidence": [
+              "ev-order-guards"
+            ]
+          },
+          {
+            "from": "service",
+            "to": "gateway",
+            "label": "charge(amount, currency, source)",
+            "kind": "call",
+            "certainty": "observed",
+            "evidence": [
+              "ev-charge-call"
+            ]
+          },
+          {
+            "from": "gateway",
+            "to": "service",
+            "label": "{ id, succeeded: true }",
+            "kind": "return",
+            "certainty": "observed",
+            "evidence": [
+              "ev-gateway-result"
+            ]
+          },
+          {
+            "from": "service",
+            "to": "payments",
+            "label": "insert(status: captured)",
+            "kind": "call",
+            "certainty": "observed",
+            "evidence": [
+              "ev-payment-insert"
+            ]
+          },
+          {
+            "from": "service",
+            "to": "orders",
+            "label": "updateStatus(orderId, 'paid')",
+            "kind": "call",
+            "certainty": "observed",
+            "evidence": [
+              "ev-mark-paid"
+            ]
+          },
+          {
+            "from": "route",
+            "to": "client",
+            "label": "200 { ok, chargeId }",
+            "kind": "return",
+            "certainty": "observed",
+            "evidence": [
+              "ev-route"
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMachines": [
+      {
+        "id": "sm-order-status",
+        "title": "Order status during payment",
+        "subject": "orders.status",
+        "description": "Only the transitions made by the payment flow. Other statuses exist (the guard rejects anything but pending) but are not set here.",
+        "states": [
+          {
+            "id": "pending",
+            "label": "pending",
+            "initial": true
+          },
+          {
+            "id": "paid",
+            "label": "paid"
+          }
+        ],
+        "transitions": [
+          {
+            "from": "pending",
+            "to": "paid",
+            "trigger": "payOrder",
+            "guard": "charge succeeded",
+            "certainty": "observed",
+            "evidence": [
+              "ev-mark-paid"
+            ]
+          },
+          {
+            "from": "pending",
+            "to": "pending",
+            "trigger": "payOrder",
+            "guard": "charge declined",
+            "certainty": "observed",
+            "evidence": [
+              "ev-declined"
+            ]
+          }
+        ]
+      }
+    ],
+    "dataFlows": [
+      {
+        "id": "df-card-data",
+        "title": "Where payment data goes",
+        "nodes": [
+          {
+            "id": "client",
+            "label": "HTTP request body",
+            "kind": "source"
+          },
+          {
+            "id": "service",
+            "label": "PaymentService",
+            "kind": "process",
+            "componentId": "payment-service"
+          },
+          {
+            "id": "gateway",
+            "label": "Card gateway",
+            "kind": "external",
+            "componentId": "card-gateway"
+          },
+          {
+            "id": "payments",
+            "label": "payments table",
+            "kind": "store",
+            "componentId": "payment-record"
+          },
+          {
+            "id": "orders",
+            "label": "orders table",
+            "kind": "store",
+            "componentId": "order-repo"
+          }
+        ],
+        "flows": [
+          {
+            "from": "client",
+            "to": "service",
+            "data": "orderId, cardToken",
+            "certainty": "observed",
+            "evidence": [
+              "ev-route"
+            ]
+          },
+          {
+            "from": "service",
+            "to": "gateway",
+            "data": "amount, currency, source = cardToken",
+            "certainty": "observed",
+            "evidence": [
+              "ev-charge-call",
+              "ev-gateway-url"
+            ]
+          },
+          {
+            "from": "gateway",
+            "to": "service",
+            "data": "charge id, succeeded",
+            "certainty": "observed",
+            "evidence": [
+              "ev-gateway-result"
+            ]
+          },
+          {
+            "from": "service",
+            "to": "payments",
+            "data": "orderId, gatewayChargeId, amount, status",
+            "certainty": "observed",
+            "evidence": [
+              "ev-payment-insert"
+            ]
+          },
+          {
+            "from": "service",
+            "to": "orders",
+            "data": "status = 'paid'",
+            "certainty": "observed",
+            "evidence": [
+              "ev-mark-paid"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "documentation": {
+    "sections": [
+      {
+        "id": "overview",
+        "title": "Overview",
+        "kind": "overview",
+        "origin": "generated",
+        "sourceRefs": [
+          "ev-pay-order"
+        ],
+        "provenance": {
+          "historyId": "h-1"
+        }
+      },
+      {
+        "id": "scope",
+        "title": "Scope",
+        "kind": "scope",
+        "origin": "generated",
+        "provenance": {
+          "historyId": "h-1"
+        }
+      },
+      {
+        "id": "architecture",
+        "title": "Architecture",
+        "kind": "architecture",
+        "origin": "generated",
+        "visualizations": [
+          "arch-payment"
+        ],
+        "provenance": {
+          "historyId": "h-1"
+        }
+      },
+      {
+        "id": "implementation",
+        "title": "How it works",
+        "kind": "implementation",
+        "origin": "generated",
+        "visualizations": [
+          "exec-pay-order"
+        ],
+        "provenance": {
+          "historyId": "h-1"
+        }
+      },
+      {
+        "id": "flows",
+        "title": "Flows",
+        "kind": "flows",
+        "origin": "generated",
+        "visualizations": [
+          "seq-pay",
+          "sm-order-status",
+          "df-card-data"
+        ],
+        "provenance": {
+          "historyId": "h-1"
+        }
+      },
+      {
+        "id": "impact",
+        "title": "Change impact",
+        "kind": "impact",
+        "origin": "generated",
+        "provenance": {
+          "historyId": "h-1"
+        }
+      },
+      {
+        "id": "risks",
+        "title": "Risks",
+        "kind": "risks",
+        "origin": "generated",
+        "provenance": {
+          "historyId": "h-1"
+        }
+      },
+      {
+        "id": "testing",
+        "title": "Testing",
+        "kind": "testing",
+        "origin": "generated",
+        "provenance": {
+          "historyId": "h-1"
+        }
+      },
+      {
+        "id": "unknowns",
+        "title": "Unknowns and limitations",
+        "kind": "unknowns",
+        "origin": "generated",
+        "provenance": {
+          "historyId": "h-1"
+        }
+      },
+      {
+        "id": "references",
+        "title": "Source references",
+        "kind": "references",
+        "origin": "generated",
+        "provenance": {
+          "historyId": "h-1"
+        }
+      },
+      {
+        "id": "team-notes",
+        "title": "Team notes",
+        "kind": "custom",
+        "origin": "manual",
+        "body": "Before changing payOrder, talk to whoever owns the gateway contract: the charges API is shared with the subscriptions team.",
+        "provenance": {
+          "historyId": "h-2"
+        }
+      },
+      {
+        "id": "history",
+        "title": "History",
+        "kind": "history",
+        "origin": "generated",
+        "provenance": {
+          "historyId": "h-1"
+        }
+      }
+    ]
+  },
+  "history": [
+    {
+      "id": "h-1",
+      "at": "2026-09-23T19:00:00.000Z",
+      "action": "created",
+      "by": {
+        "source": "unknown"
+      },
+      "toolVersion": "0.2.0",
+      "summary": "Initial analysis of the order payment flow.",
+      "changedFiles": [],
+      "changedSections": [
+        "overview",
+        "scope",
+        "architecture",
+        "implementation",
+        "flows",
+        "impact",
+        "risks",
+        "testing",
+        "unknowns",
+        "references",
+        "history"
+      ],
+      "validation": {
+        "valid": true,
+        "errorCount": 0,
+        "warningCount": 0,
+        "evidenceChecked": true
+      }
+    },
+    {
+      "id": "h-2",
+      "at": "2026-09-23T20:15:00.000Z",
+      "action": "updated",
+      "by": {
+        "name": "Example Maintainer",
+        "source": "user-provided"
+      },
+      "toolVersion": "0.2.0",
+      "summary": "Added a hand-written team notes section.",
+      "changedFiles": [],
+      "changedSections": [
+        "team-notes"
+      ],
+      "validation": {
+        "valid": true,
+        "errorCount": 0,
+        "warningCount": 0,
+        "evidenceChecked": true
+      }
+    }
+  ]
+}

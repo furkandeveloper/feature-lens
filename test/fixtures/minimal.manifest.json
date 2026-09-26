@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "feature": {
+      "id": "empty-feature",
+      "name": "Minimal manifest",
+      "description": "The smallest valid manifest: no evidence, no visualizations, one section.",
+      "mode": "existing-feature",
+      "request": "Document nothing."
+    },
+    "repository": { "name": "nowhere" },
+    "tool": { "name": "featurelens", "version": "0.2.0" },
+    "generatedAt": "2026-09-23T10:00:00Z",
+    "updatedAt": "2026-09-23T10:00:00Z",
+    "generatedBy": { "source": "unknown" },
+    "contributors": []
+  },
+  "evidence": [],
+  "analysis": {
+    "scope": { "summary": "Nothing in scope.", "inScope": [], "outOfScope": [] },
+    "files": [],
+    "components": [],
+    "relationships": [],
+    "findings": [],
+    "impact": { "summary": "", "items": [], "relationships": [] },
+    "risks": [],
+    "testing": [],
+    "unknowns": [
+      { "id": "u-everything", "kind": "limitation", "statement": "No code was analyzed.", "reason": "This is a schema fixture." }
+    ]
+  },
+  "visualizations": {},
+  "documentation": {
+    "sections": [
+      { "id": "overview", "title": "Overview", "kind": "overview", "origin": "generated", "provenance": { "historyId": "h-1" } }
+    ]
+  },
+  "history": [
+    {
+      "id": "h-1",
+      "at": "2026-09-23T10:00:00Z",
+      "action": "created",
+      "by": { "source": "unknown" },
+      "toolVersion": "0.2.0",
+      "summary": "Created.",
+      "changedFiles": [],
+      "changedSections": ["overview"],
+      "validation": { "valid": true, "errorCount": 0, "warningCount": 0, "evidenceChecked": false }
+    }
+  ]
+}

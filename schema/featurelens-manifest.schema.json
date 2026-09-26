@@ -1,0 +1,635 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/featurelens/featurelens/schema/featurelens-manifest.schema.json",
+  "title": "FeatureLens manifest",
+  "description": "Structured, evidence-based analysis of one feature in one repository, schema version 1.x. This is the contract between the analysis step (Claude) and the deterministic tooling (validation, rendering, updates). Cross-references, graph integrity, history consistency and evidence-vs-source checks that JSON Schema cannot express are enforced by src/validation/.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "metadata", "evidence", "analysis", "visualizations", "documentation", "history"],
+  "properties": {
+    "schemaVersion": {
+      "description": "Semver. Checked before anything else: the major version must be supported, and the minor must not be newer than the tool knows (newer minors may add fields this tool would reject).",
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$"
+    },
+
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["feature", "repository", "tool", "generatedAt", "updatedAt", "generatedBy", "contributors"],
+      "properties": {
+        "feature": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "name", "description", "mode", "request"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id", "description": "Stable identifier. Becomes the output folder name." },
+            "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "description": { "type": "string", "minLength": 1 },
+            "mode": {
+              "description": "existing-feature: explain current behavior. change-impact: analyze a proposed change against current behavior.",
+              "enum": ["existing-feature", "change-impact"]
+            },
+            "request": { "type": "string", "minLength": 1, "description": "The user's original natural-language request, verbatim." },
+            "proposedChange": { "type": "string", "description": "Required when mode is change-impact (checked semantically)." }
+          }
+        },
+        "repository": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "remoteUrl": { "type": "string", "description": "Credentials are stripped before recording." },
+            "branch": { "type": "string" },
+            "revision": { "$ref": "#/$defs/revision", "description": "Commit the analysis ran against. Absent when the repository is not under git." },
+            "dirty": { "type": "boolean", "description": "True when the analysis ran against uncommitted changes." }
+          }
+        },
+        "tool": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "version"],
+          "properties": {
+            "name": { "const": "featurelens" },
+            "version": { "type": "string", "minLength": 1 }
+          }
+        },
+        "generatedAt": { "$ref": "#/$defs/timestamp", "description": "Must equal the first history entry's timestamp." },
+        "updatedAt": { "$ref": "#/$defs/timestamp", "description": "Must equal the last history entry's timestamp." },
+        "generatedBy": { "$ref": "#/$defs/person" },
+        "contributors": {
+          "description": "People who authored the analyzed code, e.g. from git log on the evidence files.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/contributor" }
+        }
+      }
+    },
+
+    "evidence": {
+      "description": "Source references that back up claims. Everything else cites these by id.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/sourceRef" }
+    },
+
+    "analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "files", "components", "relationships", "findings", "impact", "risks", "testing", "unknowns"],
+      "properties": {
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["summary", "inScope", "outOfScope"],
+          "properties": {
+            "summary": { "type": "string", "minLength": 1 },
+            "inScope": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "outOfScope": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "entryPoints": { "type": "array", "items": { "$ref": "#/$defs/id" }, "description": "Component ids where the feature starts." }
+          }
+        },
+        "files": {
+          "description": "Files relevant to the feature.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "role", "reason"],
+            "properties": {
+              "path": { "$ref": "#/$defs/repoPath" },
+              "role": { "enum": ["primary", "supporting", "test", "config", "schema", "documentation"] },
+              "reason": { "type": "string", "minLength": 1 },
+              "evidence": { "$ref": "#/$defs/evidenceRefs" }
+            }
+          }
+        },
+        "components": {
+          "description": "Nodes of the dependency graph: modules, functions, classes, endpoints, data models, external dependencies and so on.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "name", "kind", "summary", "certainty", "evidence"],
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "name": { "type": "string", "minLength": 1 },
+              "kind": {
+                "enum": ["module", "service", "function", "class", "endpoint", "model", "datastore", "external", "ui", "job", "config", "test", "other"]
+              },
+              "summary": { "type": "string", "minLength": 1 },
+              "parent": { "$ref": "#/$defs/id", "description": "Containing component, e.g. the module a class lives in. Must not form a cycle." },
+              "endpoint": {
+                "description": "Only valid when kind is endpoint.",
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["protocol", "path"],
+                "properties": {
+                  "protocol": { "enum": ["http", "grpc", "graphql", "websocket", "message", "cli", "other"] },
+                  "method": { "type": "string", "minLength": 1, "description": "HTTP method, RPC name, or operation type." },
+                  "path": { "type": "string", "minLength": 1, "description": "Route, topic, or operation name." }
+                }
+              },
+              "dependency": {
+                "description": "Only valid when kind is external.",
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "minLength": 1, "description": "Package or service name." },
+                  "ecosystem": { "type": "string", "description": "e.g. npm, pypi, maven, saas." },
+                  "version": { "type": "string", "description": "Only as declared in a manifest or lockfile that is cited as evidence." }
+                }
+              },
+              "certainty": { "$ref": "#/$defs/certainty" },
+              "evidence": { "$ref": "#/$defs/evidenceRefs" }
+            }
+          }
+        },
+        "relationships": {
+          "description": "Edges of the dependency graph between components.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "from", "to", "kind", "certainty", "evidence"],
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "from": { "$ref": "#/$defs/id" },
+              "to": { "$ref": "#/$defs/id" },
+              "kind": { "enum": ["calls", "imports", "reads", "writes", "emits", "subscribes", "renders", "configures", "depends-on", "contains"] },
+              "label": { "type": "string" },
+              "certainty": { "$ref": "#/$defs/certainty" },
+              "evidence": { "$ref": "#/$defs/evidenceRefs" }
+            }
+          }
+        },
+        "findings": {
+          "description": "Prose claims. Each belongs to one documentation section.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "section", "title", "body", "certainty", "evidence"],
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "section": { "$ref": "#/$defs/id", "description": "A documentation section id." },
+              "title": { "type": "string", "minLength": 1 },
+              "body": { "type": "string", "minLength": 1, "description": "Plain text. Renderers must escape it; never treated as HTML." },
+              "certainty": { "$ref": "#/$defs/certainty" },
+              "evidence": { "$ref": "#/$defs/evidenceRefs" }
+            }
+          }
+        },
+        "impact": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["summary", "items", "relationships"],
+          "properties": {
+            "summary": { "type": "string" },
+            "items": {
+              "description": "Things a change to this feature touches. Each names a component, a file, or both.",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "level", "change", "reason", "certainty", "evidence"],
+                "properties": {
+                  "id": { "$ref": "#/$defs/id" },
+                  "componentId": { "$ref": "#/$defs/id" },
+                  "file": { "$ref": "#/$defs/repoPath", "description": "Must exist in the repository unless change is add." },
+                  "level": { "enum": ["high", "medium", "low"] },
+                  "change": {
+                    "description": "add/modify/remove: proposed implementation work. review: likely affected, needs checking. none: context only.",
+                    "enum": ["add", "modify", "remove", "review", "none"]
+                  },
+                  "reason": { "type": "string", "minLength": 1 },
+                  "certainty": { "$ref": "#/$defs/certainty" },
+                  "evidence": { "$ref": "#/$defs/evidenceRefs" }
+                }
+              }
+            },
+            "relationships": {
+              "description": "Impact propagation: a change to `from` forces or risks a change to `to`.",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "from", "to", "reason", "certainty", "evidence"],
+                "properties": {
+                  "id": { "$ref": "#/$defs/id" },
+                  "from": { "$ref": "#/$defs/id", "description": "An impact item id." },
+                  "to": { "$ref": "#/$defs/id", "description": "An impact item id." },
+                  "reason": { "type": "string", "minLength": 1 },
+                  "certainty": { "$ref": "#/$defs/certainty" },
+                  "evidence": { "$ref": "#/$defs/evidenceRefs" }
+                }
+              }
+            }
+          }
+        },
+        "risks": { "type": "array", "items": { "$ref": "#/$defs/note" } },
+        "testing": { "type": "array", "items": { "$ref": "#/$defs/note" } },
+        "unknowns": {
+          "description": "What the analysis could not verify (question) or did not cover (limitation). Rendered prominently; never hidden.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "kind", "statement", "reason"],
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "kind": { "enum": ["question", "limitation"] },
+              "statement": { "type": "string", "minLength": 1 },
+              "reason": { "type": "string", "minLength": 1 },
+              "evidence": { "$ref": "#/$defs/evidenceRefs" }
+            }
+          }
+        }
+      }
+    },
+
+    "visualizations": {
+      "description": "Optional diagram data. Include only the types that fit the feature. Visualization ids are unique across all types.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "type": "array",
+          "items": {
+            "description": "A view over the analysis graph: which components to show, how to group them, and which relationships to draw.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "nodes", "edges"],
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "title": { "type": "string", "minLength": 1 },
+              "description": { "type": "string" },
+              "groups": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["id", "label"],
+                  "properties": { "id": { "$ref": "#/$defs/id" }, "label": { "type": "string", "minLength": 1 } }
+                }
+              },
+              "nodes": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["componentId"],
+                  "properties": { "componentId": { "$ref": "#/$defs/id" }, "group": { "$ref": "#/$defs/id" } }
+                }
+              },
+              "edges": {
+                "description": "Relationship ids. Both endpoints must be nodes of this view.",
+                "type": "array",
+                "items": { "$ref": "#/$defs/id" }
+              }
+            }
+          }
+        },
+        "executionFlows": {
+          "type": "array",
+          "items": {
+            "description": "A flowchart of what runs, in order, including branches.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "start", "steps"],
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "title": { "type": "string", "minLength": 1 },
+              "description": { "type": "string" },
+              "start": { "$ref": "#/$defs/id", "description": "Id of the first step." },
+              "steps": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["id", "label", "certainty", "evidence"],
+                  "properties": {
+                    "id": { "$ref": "#/$defs/id" },
+                    "label": { "type": "string", "minLength": 1 },
+                    "componentId": { "$ref": "#/$defs/id" },
+                    "next": {
+                      "description": "Outgoing transitions. Omit or leave empty for a terminal step.",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["to"],
+                        "properties": { "to": { "$ref": "#/$defs/id" }, "condition": { "type": "string", "minLength": 1 } }
+                      }
+                    },
+                    "certainty": { "$ref": "#/$defs/certainty" },
+                    "evidence": { "$ref": "#/$defs/evidenceRefs" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "sequences": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "participants", "messages"],
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "title": { "type": "string", "minLength": 1 },
+              "description": { "type": "string" },
+              "participants": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["id", "label"],
+                  "properties": { "id": { "$ref": "#/$defs/id" }, "label": { "type": "string", "minLength": 1 }, "componentId": { "$ref": "#/$defs/id" } }
+                }
+              },
+              "messages": {
+                "description": "In message order.",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["from", "to", "label", "kind", "certainty", "evidence"],
+                  "properties": {
+                    "from": { "$ref": "#/$defs/id" },
+                    "to": { "$ref": "#/$defs/id" },
+                    "label": { "type": "string", "minLength": 1 },
+                    "kind": { "enum": ["call", "return", "async", "event"] },
+                    "certainty": { "$ref": "#/$defs/certainty" },
+                    "evidence": { "$ref": "#/$defs/evidenceRefs" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "stateMachines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "states", "transitions"],
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "title": { "type": "string", "minLength": 1 },
+              "description": { "type": "string" },
+              "subject": { "type": "string", "description": "What has the state, e.g. \"order.status\"." },
+              "states": {
+                "description": "Exactly one state must be initial.",
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["id", "label"],
+                  "properties": {
+                    "id": { "$ref": "#/$defs/id" },
+                    "label": { "type": "string", "minLength": 1 },
+                    "initial": { "type": "boolean" },
+                    "terminal": { "type": "boolean" }
+                  }
+                }
+              },
+              "transitions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["from", "to", "trigger", "certainty", "evidence"],
+                  "properties": {
+                    "from": { "$ref": "#/$defs/id" },
+                    "to": { "$ref": "#/$defs/id" },
+                    "trigger": { "type": "string", "minLength": 1 },
+                    "guard": { "type": "string", "minLength": 1 },
+                    "certainty": { "$ref": "#/$defs/certainty" },
+                    "evidence": { "$ref": "#/$defs/evidenceRefs" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "dataFlows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "nodes", "flows"],
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "title": { "type": "string", "minLength": 1 },
+              "description": { "type": "string" },
+              "nodes": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["id", "label", "kind"],
+                  "properties": {
+                    "id": { "$ref": "#/$defs/id" },
+                    "label": { "type": "string", "minLength": 1 },
+                    "kind": { "enum": ["source", "process", "store", "sink", "external"] },
+                    "componentId": { "$ref": "#/$defs/id" }
+                  }
+                }
+              },
+              "flows": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["from", "to", "data", "certainty", "evidence"],
+                  "properties": {
+                    "from": { "$ref": "#/$defs/id" },
+                    "to": { "$ref": "#/$defs/id" },
+                    "data": { "type": "string", "minLength": 1, "description": "What moves along this edge." },
+                    "certainty": { "$ref": "#/$defs/certainty" },
+                    "evidence": { "$ref": "#/$defs/evidenceRefs" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "documentation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sections"],
+      "properties": {
+        "sections": {
+          "description": "In document order.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "kind", "origin", "provenance"],
+            "properties": {
+              "id": { "$ref": "#/$defs/id", "description": "Stable anchor. Findings and history refer to sections by this id." },
+              "title": { "type": "string", "minLength": 1 },
+              "kind": {
+                "description": "Tells the renderer which analysis data to lay out in this section. custom sections show only their body, findings and visualizations.",
+                "enum": ["overview", "scope", "architecture", "implementation", "flows", "impact", "risks", "testing", "unknowns", "references", "history", "custom"]
+              },
+              "origin": {
+                "description": "Manual content marker. generated: FeatureLens owns and may regenerate it. manual: written by a person; updates never modify it.",
+                "enum": ["generated", "manual"]
+              },
+              "body": { "type": "string", "minLength": 1, "description": "Plain-text introduction. Required for manual sections." },
+              "sourceRefs": { "$ref": "#/$defs/evidenceRefs" },
+              "visualizations": { "type": "array", "items": { "$ref": "#/$defs/id" }, "description": "Visualization ids shown in this section." },
+              "provenance": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["historyId"],
+                "properties": {
+                  "historyId": { "$ref": "#/$defs/id", "description": "History entry that last changed this section. It gives who, when, at which revision, with which tool version." }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "history": {
+      "description": "Append-only, oldest first. The first entry is the creation.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "at", "action", "by", "toolVersion", "summary", "changedFiles", "changedSections", "validation"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "at": { "$ref": "#/$defs/timestamp" },
+          "action": { "enum": ["created", "updated"] },
+          "by": { "$ref": "#/$defs/person" },
+          "toolVersion": { "type": "string", "minLength": 1 },
+          "summary": { "type": "string", "minLength": 1 },
+          "previousRevision": { "$ref": "#/$defs/revision", "description": "Repository revision of the previous entry. Not allowed on created." },
+          "revision": { "$ref": "#/$defs/revision", "description": "Repository revision this entry was produced from." },
+          "changedFiles": { "type": "array", "items": { "$ref": "#/$defs/repoPath" }, "description": "Source files that changed between previousRevision and revision." },
+          "changedSections": { "type": "array", "items": { "$ref": "#/$defs/id" } },
+          "validation": {
+            "description": "Result of validating the manifest as written by this entry.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["valid", "errorCount", "warningCount", "evidenceChecked"],
+            "properties": {
+              "valid": { "type": "boolean" },
+              "errorCount": { "type": "integer", "minimum": 0 },
+              "warningCount": { "type": "integer", "minimum": 0 },
+              "evidenceChecked": { "type": "boolean", "description": "Whether evidence was verified against the repository's files." }
+            }
+          }
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,64}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "repoPath": {
+      "description": "POSIX path relative to the repository root: no leading slash, drive letter, backslash, empty, \".\" or \"..\" segments.",
+      "type": "string",
+      "pattern": "^(?![A-Za-z]:)(?!(?:.*/)?\\.{1,2}(?:/|$))[^/\\\\\\u0000]+(?:/[^/\\\\\\u0000]+)*$"
+    },
+    "certainty": {
+      "description": "observed: read directly in source. inferred: reasoned from source. proposed: recommended implementation impact, not in source. unknown: could not be determined. observed and inferred require evidence.",
+      "enum": ["observed", "inferred", "proposed", "unknown"]
+    },
+    "evidenceRefs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/id" }
+    },
+    "sourceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "file", "startLine", "endLine", "kind", "explanation", "confidence", "snippetHash"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "file": { "$ref": "#/$defs/repoPath" },
+        "startLine": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 1 },
+        "symbol": { "type": "string", "minLength": 1, "description": "Function/class/route name expected to appear within the line range." },
+        "kind": {
+          "description": "What the cited lines are. logic: control flow or business rules inside a larger definition.",
+          "enum": ["definition", "call-site", "logic", "usage", "configuration", "data-schema", "test", "documentation", "comment", "other"]
+        },
+        "explanation": { "type": "string", "minLength": 1, "description": "Why these lines support the claims that cite them." },
+        "confidence": {
+          "description": "How directly the lines support those claims. high: states it outright. medium: supports it with some reading between the lines. low: suggestive only.",
+          "enum": ["high", "medium", "low"]
+        },
+        "revision": { "$ref": "#/$defs/revision", "description": "Revision the lines were read at, when it differs from or there is no metadata.repository.revision." },
+        "snippetHash": { "$ref": "#/$defs/sha256", "description": "sha256 of lines startLine..endLine joined with \\n (CRLF normalized), stamped by createSourceRef from the real lines. Lets validation detect that the cited code has changed or moved." }
+      }
+    },
+    "note": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "body", "certainty", "evidence"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "title": { "type": "string", "minLength": 1 },
+        "body": { "type": "string", "minLength": 1 },
+        "severity": { "enum": ["high", "medium", "low"] },
+        "certainty": { "$ref": "#/$defs/certainty" },
+        "evidence": { "$ref": "#/$defs/evidenceRefs" }
+      }
+    },
+    "person": {
+      "description": "Every identity field states where it came from. git user.name is NOT a GitHub login.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source"],
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "description": "Only included when config.attribution.includeEmail is true." },
+        "githubLogin": { "type": "string", "description": "Only set from an authenticated GitHub source or explicit user input." },
+        "source": { "enum": ["git-config", "git-log", "github-api", "user-provided", "unknown"] }
+      }
+    },
+    "contributor": {
+      "description": "A person who authored analyzed code. Same provenance rules as person.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source"],
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "description": "Only included when config.attribution.includeEmail is true." },
+        "githubLogin": { "type": "string", "description": "Only set from an authenticated GitHub source or explicit user input." },
+        "source": { "enum": ["git-config", "git-log", "github-api", "user-provided", "unknown"] },
+        "commits": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

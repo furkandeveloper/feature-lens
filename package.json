@@ -1,0 +1,43 @@
+{
+  "name": "featurelens",
+  "version": "1.0.0",
+  "description": "Claude Code plugin that turns one feature of a repository into visual, evidence-backed HTML documentation, with a zero-dependency CLI that validates, renders and safely writes it.",
+  "author": "FeatureLens contributors",
+  "type": "module",
+  "bin": {
+    "featurelens": "bin/featurelens.js"
+  },
+  "files": [
+    ".claude-plugin",
+    "bin",
+    "docs",
+    "schema",
+    "skills",
+    "src",
+    "CHANGELOG.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "test:browser": "FEATURELENS_REQUIRE_BROWSER=1 node --test test/interactive-browser.test.js",
+    "validate:example": "node bin/featurelens.js validate examples/sample-shop/featurelens/payment-flow.manifest.json --repo examples/sample-shop",
+    "eval": "node eval/run.js",
+    "check:release": "FEATURELENS_REQUIRE_BROWSER=1 node --test test/*.test.js && npm run validate:example && node eval/run.js --browser"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "claude-code",
+    "claude-code-plugin",
+    "skill",
+    "documentation",
+    "architecture",
+    "diagrams",
+    "impact-analysis",
+    "evidence",
+    "codebase-onboarding"
+  ],
+  "license": "MIT"
+}
