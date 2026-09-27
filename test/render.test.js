@@ -52,7 +52,9 @@ function tags(out) {
 
 const ALLOWED_TAGS = ['html', 'head', 'meta', 'title', 'style', 'body', 'header', 'h1', 'h2', 'h3', 'p', 'dl', 'dt', 'dd', 'code',
   'span', 'ul', 'ol', 'li', 'nav', 'a', 'main', 'section', 'div', 'article', 'pre', 'figure', 'figcaption', 'table', 'thead',
-  'tbody', 'tr', 'th', 'td', 'br', 'footer', 'h4', 'svg', 'g', 'rect', 'text', 'tspan', 'path'];
+  'tbody', 'tr', 'th', 'td', 'br', 'footer', 'h4', 'svg', 'g', 'rect', 'text', 'tspan', 'path',
+  // The documentation layout: disclosure widgets and emphasis, no scripts, forms or embedded content.
+  'details', 'summary', 'strong'];
 
 describe('escaping helpers', () => {
   test('escapeHtml escapes & < > " \'', () => {
@@ -450,7 +452,7 @@ describe('render: purity boundary', () => {
     visit(path.join(ROOT, 'src/render/render.js'));
     assert.deepEqual([...builtins], ['node:crypto']);
     assert.deepEqual([...seen].map((f) => path.relative(ROOT, f)).sort(),
-      ['src/analysis/diagram-model.js', 'src/analysis/flow-models.js', 'src/analysis/impact-graph.js', 'src/render/architecture-layout.js', 'src/render/diagram.js', 'src/render/escape.js', 'src/render/flow-diagram.js', 'src/render/inputs.js', 'src/render/interactive.js', 'src/render/layers.js', 'src/render/render.js']);
+      ['src/analysis/diagram-model.js', 'src/analysis/flow-models.js', 'src/analysis/impact-graph.js', 'src/render/architecture-layout.js', 'src/render/claims.js', 'src/render/diagram.js', 'src/render/escape.js', 'src/render/flow-diagram.js', 'src/render/inputs.js', 'src/render/interactive.js', 'src/render/layers.js', 'src/render/layout.js', 'src/render/overview.js', 'src/render/presentation.js', 'src/render/render.js', 'src/render/style.js']);
   });
 });
 

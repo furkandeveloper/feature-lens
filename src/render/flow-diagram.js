@@ -13,7 +13,7 @@
 // every diagram; the SVG only abbreviates it.
 
 import { html } from './escape.js';
-import { layoutDiagram, arrowBetween, wrapLabel, num, NODE_W, NODE_H, GAP_Y, MARGIN } from './diagram.js';
+import { layoutDiagram, arrowBetween, wrapLabel, num, textVersion, NODE_W, NODE_H, GAP_Y, MARGIN } from './diagram.js';
 
 /**
  * These diagrams scale down to fit only up to this width (one column of
@@ -104,7 +104,7 @@ function executionFlow(m, ctx) {
 <li><span class="swatch edge-declared"></span> Arrow: a next step declared by a step (part of that step's claim), with its condition if one is given.</li>
 ${staleLegend()}
 </ul>
-<div class="diagram-summary">
+${textVersion(ctx, html`<div class="diagram-summary">
 <p class="detail">Text version: ${m.steps.length} step(s), ${m.links.length} link(s). Start step: ${name(m.start)}. Steps are listed in manifest order; the order of execution is given only by the start step and the links.</p>
 <h4>Steps</h4>
 <ul>
@@ -117,7 +117,7 @@ ${m.links.map((l) => {
   return html`<li>${name(l.source)} → ${name(l.target)}${l.condition ? html` <span class="kind">condition: ${l.condition}</span>` : ''} <span class="badge declared">declared</span>${l.source === l.target ? html` <span class="detail">(links a step to itself)</span>` : ''}<p class="detail">Part of the claim of step ${name(l.claimOf)}: ${certaintyBadge(l)}${sources(l, ctx)}</p>${decision && !l.condition ? html`<p class="detail">No condition is given for this branch.</p>` : ''}</li>
 `;
 })}</ul>` : html`<p class="empty">No links are declared.</p>`}
-</div>`;
+</div>`)}`;
 }
 
 // ── State machine ───────────────────────────────────────────────────────────
@@ -150,7 +150,7 @@ ${m.initial ? html`<li><span class="swatch node-start"></span> Thick border: the
 ` : ''}<li><span class="swatch edge-declared"></span> Arrow: a transition declared in the analysis (a claim), labelled with its trigger and [guard]. A loop at a state's corner is a transition back to the same state.</li>
 ${staleLegend()}
 </ul>
-<div class="diagram-summary">
+${textVersion(ctx, html`<div class="diagram-summary">
 <p class="detail">Text version: ${m.states.length} state(s), ${m.transitions.length} transition(s).${m.subject ? html` Subject: <code>${m.subject}</code>.` : ''} ${m.initial ? html`Initial state: ${name(m.initial)}.` : 'No initial state is declared.'} ${m.terminals.length ? html`Terminal state(s): ${m.terminals.map((id, i) => html`${i ? ', ' : ''}${name(id)}`)}.` : 'No terminal state is declared.'} Only declared transitions are shown; nothing here says which states are reachable.</p>
 <h4>States</h4>
 <ul>
@@ -160,7 +160,7 @@ ${m.states.map((s) => html`<li>${s.initial ? html`<span class="badge initial">in
 ${m.transitions.length ? html`<ul>
 ${m.transitions.map((t) => html`<li>${t.index}. ${name(t.source)} → ${name(t.target)} <span class="kind">on ${t.trigger}</span>${t.guard ? html` <span class="kind">guard ${t.guard}</span>` : ''} <span class="badge declared">declared</span>${t.self ? html` <span class="detail">(back to the same state)</span>` : ''}${t.repeats ? html` <span class="detail">(same ends, trigger and guard as transition ${t.repeats})</span>` : ''}<p class="detail">${certaintyBadge(t)}${sources(t, ctx)}</p></li>
 `)}</ul>` : html`<p class="empty">No transitions are declared.</p>`}
-</div>`;
+</div>`)}`;
 }
 
 // ── Data flow ───────────────────────────────────────────────────────────────
@@ -191,7 +191,7 @@ function dataFlow(m, ctx) {
 <li><span class="swatch edge-declared"></span> Arrow: a flow declared in the analysis (a claim), from where the data comes to where it goes, labelled with the data.</li>
 ${staleLegend()}
 </ul>
-<div class="diagram-summary">
+${textVersion(ctx, html`<div class="diagram-summary">
 <p class="detail">Text version: ${m.nodes.length} node(s), ${m.flows.length} flow(s). Kinds are as declared; only a store is described as holding data.</p>
 <h4>Nodes</h4>
 <ul>
@@ -201,7 +201,7 @@ ${m.nodes.map((n) => html`<li>${n.label} <span class="kind">${DATA_KIND[n.kind]}
 ${m.flows.length ? html`<ul>
 ${m.flows.map((f) => html`<li>${f.index}. ${name(f.source)} → ${name(f.target)} <span class="badge declared">declared</span>${f.self ? html` <span class="detail">(back to the same node)</span>` : ''}<div class="body">${f.data}</div><p class="detail">${certaintyBadge(f)}${sources(f, ctx)}</p></li>
 `)}</ul>` : html`<p class="empty">No flows are declared.</p>`}
-</div>`;
+</div>`)}`;
 }
 
 // ── Graph drawing (execution flows, state machines, data flows) ─────────────
@@ -387,7 +387,7 @@ ${m.participants.map((p) => {
 ${(kinds.length ? kinds : ['call']).map((kind) => html`<li><span class="swatch msg-${kind}"></span> ${MESSAGE_KIND[kind]}</li>
 `)}<li>"unverified" after a label: the message cites stale evidence that has not been re-checked against the current code.</li>
 </ul>
-<div class="diagram-summary">
+${textVersion(ctx, html`<div class="diagram-summary">
 <p class="detail">Text version: ${m.participants.length} participant(s), ${m.messages.length} message(s), in message order.</p>
 <h4>Participants</h4>
 <ul>
@@ -397,7 +397,7 @@ ${m.participants.map((p) => html`<li>${p.label} <span class="kind">participant <
 ${m.messages.length ? html`<ol>
 ${m.messages.map((x) => html`<li>${name(x.source)} → ${name(x.target)}: ${x.label} <span class="kind">${x.kind}</span> <span class="badge declared">declared</span>${x.self ? html` <span class="detail">(to itself)</span>` : ''}<p class="detail">${certaintyBadge(x)}${sources(x, ctx)}</p></li>
 `)}</ol>` : html`<p class="empty">No messages were recorded.</p>`}
-</div>`;
+</div>`)}`;
 }
 
 function messageShape(msg, y0, cx, labels, ctx) {

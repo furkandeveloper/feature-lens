@@ -21,6 +21,8 @@ const inputs = { excerpts: [], stale: [staleEntry(m, 'ev-route')] };
 const page = render(m, inputs, { interactive: true });
 const model = impactDiagram(m);
 const ref = (id) => `n${model.nodes.findIndex((n) => n.id === id)}`;
+/** The impact diagram is on the impact section's page, which the URL hash opens. */
+const AT_IMPACT = { hash: 'section-impact' };
 
 /** What selecting `r` must highlight, from the model alone. */
 function expected(r) {
@@ -114,7 +116,7 @@ describe('interactive impact graph in Chrome', () => {
   }
 
   test('the script runs under the CSP and enhances every node; the static content is all still there', async () => {
-    await b.open(page);
+    await b.open(page, AT_IMPACT);
     assert.deepEqual(await b.eval('window.__cspViolations'), []);
     const nodes = await b.eval(`[...document.querySelectorAll('div.impact-graph g.node')].map((g) => ({ tabindex: g.getAttribute('tabindex'), role: g.getAttribute('role'), pressed: g.getAttribute('aria-pressed'), label: g.getAttribute('aria-label'), title: g.querySelector('title').textContent }))`);
     assert.equal(nodes.length, model.nodes.length);
@@ -133,7 +135,7 @@ describe('interactive impact graph in Chrome', () => {
   });
 
   test('clicking a node highlights exactly its direct relationships and shows its details; clicking again clears', async () => {
-    await b.open(page);
+    await b.open(page, AT_IMPACT);
     const service = ref('payment-service');
     await b.click(`g.node[data-node="${service}"]`);
     const s = await state();
@@ -154,7 +156,7 @@ describe('interactive impact graph in Chrome', () => {
   });
 
   test('stale evidence is shown as unverified in the details', async () => {
-    await b.open(page);
+    await b.open(page, AT_IMPACT);
     const route = ref('pay-route');
     await b.click(`g.node[data-node="${route}"]`);
     const s = await state();
@@ -163,7 +165,7 @@ describe('interactive impact graph in Chrome', () => {
   });
 
   test('keyboard: Tab moves between nodes with a visible focus outline; Enter and Space select; Escape clears', async () => {
-    await b.open(page);
+    await b.open(page, AT_IMPACT);
     await b.eval(`document.querySelector('div.impact-graph g.node[data-node="n0"]').focus()`);
     assert.equal((await state()).active, 'n0', 'nodes are focusable');
     await b.key('Tab');
@@ -185,7 +187,7 @@ describe('interactive impact graph in Chrome', () => {
   });
 
   test('the reset button clears the selection and returns focus to the node', async () => {
-    await b.open(page);
+    await b.open(page, AT_IMPACT);
     await b.click('g.node[data-node="n2"]');
     assertSelected(await state(), 'n2');
     await b.click('button.impact-reset');
@@ -197,7 +199,7 @@ describe('interactive impact graph in Chrome', () => {
   test('when the script is blocked, the page is the static document: no dead controls, nothing focusable in the diagram', async () => {
     const blocked = page.replace(IMPACT_SCRIPT_HASH.replaceAll("'", '&#39;'), '&#39;sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=&#39;');
     assert.notEqual(blocked, page);
-    await b.open(blocked);
+    await b.open(blocked, AT_IMPACT);
     const violations = await b.eval('window.__cspViolations');
     assert.ok(violations.some((v) => v.startsWith('script-src')), violations.join());
     const s = await b.eval(`({
@@ -212,7 +214,7 @@ describe('interactive impact graph in Chrome', () => {
 
   test('an injected inline handler or unhashed script does not run', async () => {
     const injected = page.replace('<h3>Impact diagram</h3>', '<h3>Impact diagram</h3><img src="data:," onerror="window.__pwned=1"><script>window.__pwned=2</script>');
-    await b.open(injected);
+    await b.open(injected, AT_IMPACT);
     assert.equal(await b.eval('window.__pwned ?? null'), null);
     assert.ok((await b.eval('window.__cspViolations')).length >= 2);
     assert.equal(await b.eval(`document.querySelectorAll('g.node[tabindex]').length`), model.nodes.length, 'the hashed script still runs');
@@ -222,7 +224,7 @@ describe('interactive impact graph in Chrome', () => {
     for (const dark of [false, true]) {
       test(`${width}px ${dark ? 'dark' : 'light'}: no page-level horizontal overflow; wide graphs scroll in their container; readable text`, async () => {
         for (const [name, doc] of [['sample', render(sampleManifest(), { excerpts: [], stale: [] }, { interactive: true })], ['derived', page]]) {
-          await b.open(doc, { width, dark });
+          await b.open(doc, { width, dark, ...AT_IMPACT });
           await b.click('div.impact-graph g.node[data-node="n0"]');
           const r = await b.eval(`(() => {
             const rgb = (c) => { const m = c.match(/[\\d.]+/g).map(Number); return m.length === 4 && m[3] === 0 ? null : m.slice(0, 3); };

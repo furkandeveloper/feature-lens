@@ -112,13 +112,15 @@ class Browser {
   }
 
   /**
-   * Load `html` from a temporary file at the given viewport and color scheme.
+   * Load `html` from a temporary file at the given viewport and color scheme,
+   * at `#hash` when one is given (a page of the document, test/layout-browser.test.js),
+   * with prefers-reduced-motion when `reducedMotion` is set (no smooth scrolling to wait for).
    * CSP violations are recorded in `window.__cspViolations`.
    */
-  async open(html, { width = 1280, height = 900, dark = false } = {}) {
+  async open(html, { width = 1280, height = 900, dark = false, hash = '', reducedMotion = false } = {}) {
     await this.send('Page.enable');
     await this.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 600 });
-    await this.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: dark ? 'dark' : 'light' }] });
+    await this.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: dark ? 'dark' : 'light' }, { name: 'prefers-reduced-motion', value: reducedMotion ? 'reduce' : 'no-preference' }] });
     if (!this.watching) {
       await this.send('Page.addScriptToEvaluateOnNewDocument', {
         source: 'window.__cspViolations = []; document.addEventListener("securitypolicyviolation", (e) => window.__cspViolations.push(e.violatedDirective + " " + e.blockedURI));',
@@ -128,7 +130,7 @@ class Browser {
     const file = path.join(this.dir, `page-${++this.id}.html`);
     fs.writeFileSync(file, html);
     const loaded = this.waitFor('Page.loadEventFired');
-    await this.send('Page.navigate', { url: `file://${file}` });
+    await this.send('Page.navigate', { url: `file://${file}${hash ? `#${hash}` : ''}` });
     await loaded;
   }
 
@@ -139,16 +141,17 @@ class Browser {
     return r.result.value;
   }
 
-  async key(key) {
+  /** Press `key`; `modifiers` is the DevTools bit mask (8 = Shift). */
+  async key(key, modifiers = 0) {
     const codes = { Tab: ['Tab', 9], Enter: ['Enter', 13, '\r'], ' ': ['Space', 32, ' '], Escape: ['Escape', 27] };
     const [code, vk, text] = codes[key];
-    await this.send('Input.dispatchKeyEvent', { type: 'keyDown', key, code, windowsVirtualKeyCode: vk, ...(text ? { text } : {}) });
-    await this.send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode: vk });
+    await this.send('Input.dispatchKeyEvent', { type: 'keyDown', key, code, windowsVirtualKeyCode: vk, ...(text ? { text } : {}), ...(modifiers ? { modifiers } : {}) });
+    await this.send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode: vk, ...(modifiers ? { modifiers } : {}) });
   }
 
   /** Click the center of the first element matching `selector`, scrolled into view. */
   async click(selector) {
-    const at = await this.eval(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); e.scrollIntoView({ block: 'center', inline: 'center' }); const r = e.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+    const at = await this.eval(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); e.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' }); const r = e.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
     for (const type of ['mousePressed', 'mouseReleased']) {
       await this.send('Input.dispatchMouseEvent', { type, x: at.x, y: at.y, button: 'left', clickCount: 1 });
     }
