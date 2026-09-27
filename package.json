@@ -20,7 +20,7 @@
   ],
   "scripts": {
     "test": "node --test test/*.test.js",
-    "test:browser": "FEATURELENS_REQUIRE_BROWSER=1 node --test test/interactive-browser.test.js",
+    "test:browser": "FEATURELENS_REQUIRE_BROWSER=1 node --test test/interactive-browser.test.js test/layout-browser.test.js",
     "validate:example": "node bin/featurelens.js validate examples/sample-shop/featurelens/payment-flow.manifest.json --repo examples/sample-shop",
     "eval": "node eval/run.js",
     "check:release": "FEATURELENS_REQUIRE_BROWSER=1 node --test test/*.test.js && npm run validate:example && node eval/run.js --browser"

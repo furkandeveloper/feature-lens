@@ -94,10 +94,54 @@ there, and `build` and `update` refuse an `--out` inside it.
 5. **Collect excerpts** (see below) into `<scratch>/excerpts.json`.
 6. **Render:**
    `node "${CLAUDE_PLUGIN_ROOT}/bin/featurelens.js" render <scratch>/manifest.json --repo . --excerpts <scratch>/excerpts.json`
-   (add `--json` for a machine-readable report; add `--interactive` only
-   when the user asks for an interactive impact graph, see "Diagrams").
-7. **Report** the path of `index.html`. Mention any evidence shown without an
-   excerpt, and the unknowns you recorded.
+   (add `--json` for a machine-readable report; add `--mode product` when
+   the audience calls for it, see "Presentation mode"; add `--interactive`
+   only when the user asks for an interactive impact graph, see "Diagrams").
+7. **Report** the path of `index.html` and the mode you rendered. Mention
+   any evidence shown without an excerpt, and the unknowns you recorded.
+
+## Presentation mode
+
+`render --mode developer` (the default) or `render --mode product`. Both
+render the same manifest with the same claims, certainty, evidence and
+diagrams; the mode changes only labels and what starts collapsed. It is
+not stored, so pass it on every render, and it changes nothing you write
+in the manifest.
+
+- **`developer`** (default): for engineers who will find, change, debug or
+  review the code. Every claim shows its certainty and its sources
+  (`file:lines` and symbol); the overview has a "Where it lives" card
+  (entry points, primary files, configuration); code excerpts are open.
+- **`product`**: for product engineers, architects and technical
+  stakeholders who need to understand behavior rather than code: "how does
+  this work, what can go wrong, what is still unknown". Certainty is
+  worded plainly ("Read in code", "Inferred from code"), sources and
+  implementation details sit under "Technical details", and the overview
+  shows the first execution flow (else the first sequence) as numbered
+  "How it works" steps.
+
+Pick `product` only when the user asks for it or clearly describes a
+non-implementation audience ("for the PM", "for a design review", "explain
+it to stakeholders"); otherwise use the default. If unsure, ask. Product
+mode does not rewrite your text, so when it is the target, write finding
+titles and bodies, and step labels of the first execution flow, so they
+read well to that audience. Keep them factual and backed by the cited
+lines: never add business meaning the code doesn't show. To offer both,
+render one, then the other; each render replaces the page.
+
+## The generated page
+
+The page is a small documentation app with no script: an overview page
+(feature, repository, evidence status, key facts, the first section if it
+is an `overview`, and links to findings, top risks, open questions and
+diagrams), a sidebar that groups sections by kind (overview/scope;
+architecture/implementation/impact; flows; risks/testing/unknowns;
+custom; references/history), and one page per section, chosen by the URL
+hash. On narrow screens the sidebar is a drawer behind a Menu button.
+Groups with no section are not shown, so you don't need empty sections;
+the order of `sections` is still the document order, and a finding
+appears in the section it names. Give sections short titles: they are the
+sidebar labels.
 
 ## Source excerpts
 
@@ -133,7 +177,7 @@ as a JSON array with one object per evidence entry, with exactly these keys:
 ## Render results
 
 To render an existing document again (for example with or without
-`--interactive`), render its own manifest: collect excerpts for it and run
+`--interactive`, or in the other `--mode`), render its own manifest: collect excerpts for it and run
 `render <outputDir>/<feature-id>/manifest.json --repo . --excerpts <scratch>/excerpts.json`.
 Nothing about the document changes except the page.
 
@@ -146,7 +190,7 @@ first and `manifest.json` last.
 |---|---|---|
 | `0` | Written; every evidence entry is current. | Report the path. |
 | `1` | Refused: invalid manifest (fix by issue code), bad excerpt (re-collect it), unsafe existing output, or unreadable input. The last line (or `refused.step` in `--json`) says which. | Fix it and run `render` again. |
-| `2` | Usage error. | Fix the command. |
+| `2` | Usage error (including a `--mode` other than `developer` or `product`). | Fix the command. |
 | `3` | Stale evidence. Refused unless every stale entry is manual-only and acknowledged; then it is written with that evidence marked unverified (`written: true` in `--json`, a line starting `! wrote`). | See the next section. |
 
 ## Stale evidence
@@ -304,6 +348,10 @@ every render. Other diagram types stay static. Use it only when the user
 asks for interactivity.
 
 ## Not available yet
+
+The page has no search. Without script, the mobile drawer doesn't close
+on Escape, and the sidebar marks the current page but not the section
+scrolled to. Product mode doesn't translate or summarize the analysis.
 
 Only the impact diagram can be made interactive, and only by selecting a
 node: there is no pan, zoom, filtering, search or transitive highlighting.

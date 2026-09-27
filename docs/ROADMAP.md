@@ -224,6 +224,27 @@ update feature docs end to end.
   with `/plugin marketplace add` and `/plugin install`
 - No product, schema, renderer or CSP change
 
+## Documentation app and presentation modes ✅
+
+- The page is a documentation app: an overview page (feature, repository,
+  evidence status, key facts, the summary section, links to findings, top
+  risks, open questions and diagrams), a sticky sidebar that groups
+  sections by kind and lists their diagrams, one page per section chosen
+  by the URL hash, previous/next links, a mobile drawer, a skip link
+  ([ARCHITECTURE.md](ARCHITECTURE.md) §6.1.5)
+- No script: pages, the current-page highlight and the drawer are
+  `:target` and `:has()` rules built from page indexes only. Without
+  `:has()`, and in print, every page is shown
+- `render --mode developer|product` (default `developer`): the same
+  claims, certainty and evidence, worded and disclosed for engineers or
+  for readers who need behavior
+- Evidence grouped by file; risk, unknown and evidence cards; disclosure
+  for secondary detail; restyled diagrams, light and dark
+- 49 new tests (26 unit and CLI, 21 in headless Chrome, 2 browser policy);
+  existing browser tests open the impact page by its hash
+- No schema, manifest, evidence, validation, write gate, build/update,
+  writer, output confinement or CSP change
+
 ## Known limitations and backlog
 
 These are documented limitations of 1.0.0. They are candidates for future
@@ -251,6 +272,14 @@ work, not planned releases.
 - Evaluate the skill with `claude plugin eval` on the example repo plus
   2–3 real open-source repositories, including prompts that require an
   `unknowns[]` entry instead of a guess
+
+### Documentation layout
+
+- No search, and no current-section highlight within a page; the drawer
+  doesn't close on Escape. Each needs a script, which static pages don't
+  carry
+- Product mode words the interface, not the analysis: claim text stays as
+  written
 
 ## Later
 

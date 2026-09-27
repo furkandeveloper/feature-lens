@@ -311,7 +311,7 @@ ${stale}
 
 function summary(model, ctx, labels, refs) {
   const name = (id) => labels.get(id);
-  return html`<div class="diagram-summary">
+  return textVersion(ctx, html`<div class="diagram-summary">
 <p class="detail">Text version: ${model.nodes.length} node(s), ${model.edges.length} relationship(s).</p>
 <h4>Nodes</h4>
 <ul>
@@ -321,7 +321,18 @@ ${model.nodes.map((n) => html`<li${refAttrs(refs, n.id)}>${nodeBadge(n)}${n.labe
 ${model.edges.length ? html`<ul>
 ${model.edges.map((e) => html`<li${refAttrs(refs, e.source, e.target)}>${name(e.source)} → ${name(e.target)} ${edgeDetail(e, ctx)}${e.source === e.target ? html` <span class="detail">(connects a node to itself; not drawn)</span>` : ''}</li>
 `)}</ul>` : html`<p class="empty">No relationships to draw.</p>`}
-${model.groups?.length ? groupSummary(model, labels) : ''}</div>`;
+${model.groups?.length ? groupSummary(model, labels) : ''}</div>`);
+}
+
+/**
+ * The text version as drawn, or, when the context asks for it (the product
+ * view), inside a collapsed <details>. Its content is the same either way.
+ */
+export function textVersion(ctx, summary) {
+  if (!ctx.collapseText) return summary;
+  return html`<details class="text-version"><summary>Text version: every node and relationship, with certainty and sources</summary>
+${summary}
+</details>`;
 }
 
 /** Every declared group, in declaration order, with its nodes; then the nodes in no group. */

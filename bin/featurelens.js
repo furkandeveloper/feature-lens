@@ -5,7 +5,7 @@ import { parseArgs } from 'node:util';
 import { validateManifest } from '../src/validation/validate.js';
 import { checkWriteGate } from '../src/validation/gate.js';
 import { loadManifestFile, ManifestLoadError, loadExcerptFile, ExcerptLoadError } from '../src/docs/store.js';
-import { render, RenderError } from '../src/render/render.js';
+import { render, RenderError, MODES, DEFAULT_MODE } from '../src/render/render.js';
 import { indexInputs } from '../src/render/inputs.js';
 import { writeFeatureDocument, writeWorkingManifest, OutputError, OutputRefusedError } from '../src/output/writer.js';
 import { getRepositoryInfo, getCurrentUser, getContributors } from '../src/git/metadata.js';
@@ -51,7 +51,8 @@ Usage:
       with acknowledged manual-only stale evidence.
 
   featurelens render <manifest.json> --repo <dir> --excerpts <file>
-                     [--acknowledge <evidence-id> ...] [--interactive] [--json]
+                     [--acknowledge <evidence-id> ...] [--mode developer|product]
+                     [--interactive] [--json]
       Validate the manifest against the repository, apply the write gate,
       check the excerpts against the manifest, render the HTML and write
       <outputDir>/<feature-id>/index.html, then manifest.json.
@@ -63,6 +64,12 @@ Usage:
       diagram: one inline script allowed by its hash in the page's CSP. The
       static diagram and its text version are unchanged; without the flag
       the page has no script. It is not stored: pass it on every render.
+      --mode picks the presentation (default developer). developer shows
+      implementation detail openly: symbols, file paths, sources and
+      certainty on every claim, and code excerpts. product words the same
+      claims for readers who need behavior rather than code, and keeps that
+      detail in expandable sections. Both show the same claims, certainty
+      and evidence; neither adds a script. Not stored: pass it on every render.
       Exit code 0 = written and current, 1 = refused (invalid manifest,
       excerpts or existing output), 3 = stale: refused, or written with
       acknowledged manual-only stale evidence (see "written" in the output).
@@ -92,6 +99,7 @@ function main(argv) {
         'edit-manual': { type: 'string', multiple: true },
         acknowledge: { type: 'string', multiple: true },
         interactive: { type: 'boolean', default: false },
+        mode: { type: 'string' },
         json: { type: 'boolean', default: false },
         help: { type: 'boolean', short: 'h', default: false },
         version: { type: 'boolean', short: 'v', default: false },
@@ -155,14 +163,15 @@ function runValidate([file], { repo, json }) {
  * its own; nothing is written unless every step before the writer passed,
  * and success is reported only after the writer returns.
  */
-function runRender([file], { repo, excerpts: excerptFile, acknowledge = [], interactive, json }) {
+function runRender([file], { repo, excerpts: excerptFile, acknowledge = [], interactive, mode = DEFAULT_MODE, json }) {
   if (!file) return usageError('render requires a manifest path');
   if (!repo) return usageError('render requires --repo <dir>; evidence must be checked against the repository before writing');
   if (!excerptFile) return usageError('render requires --excerpts <file> (a JSON array of source excerpts; [] for none)');
   if (!isDirectory(repo)) return usageError(`--repo is not a directory: ${repo}`);
+  if (!MODES.includes(mode)) return usageError(`--mode must be one of ${MODES.join(', ')}, not "${mode}"`);
 
   /** Everything the run found out, printed once at the end. */
-  const out = { written: false, manifest: file, interactive };
+  const out = { written: false, manifest: file, interactive, mode };
   const finish = (exitCode, refusal) => {
     if (refusal) out.refused = refusal;
     if (json) {
@@ -221,7 +230,7 @@ function runRender([file], { repo, excerpts: excerptFile, acknowledge = [], inte
   let html;
   try {
     config = loadConfig(repo);
-    html = render(manifest, { excerpts, stale: result.stale }, { interactive });
+    html = render(manifest, { excerpts, stale: result.stale }, { interactive, mode });
   } catch (e) {
     if (!(e instanceof ConfigError || e instanceof RenderError)) throw e;
     return finish(EXIT.invalid, { step: e instanceof ConfigError ? 'config' : 'render', message: e.message });

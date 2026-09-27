@@ -21,6 +21,7 @@ the document without losing its history or anything a person wrote by hand.
 - [How it works](#how-it-works)
 - [Installation](#installation)
 - [First use](#first-use)
+- [The generated page](#the-generated-page): [layout and navigation](#layout-and-navigation), [developer and product modes](#developer-and-product-modes)
 - [Workflows](#workflows): [build](#build-a-new-document), [update](#update-a-document-after-the-code-changed), [render again](#render-again-and-interactive-rendering)
 - [Command reference](#command-reference)
 - [Recovering from a refusal](#recovering-from-a-refusal)
@@ -34,8 +35,10 @@ the document without losing its history or anything a person wrote by hand.
 
 Each document is one feature, written to `docs/features/<feature-id>/`:
 
-- **`index.html`**: a single self-contained page that works offline. It has
-  no external resources, and by default no script.
+- **`index.html`**: a single self-contained page that works offline, laid
+  out as a small documentation app: an overview page, a sidebar that groups
+  the sections, and one page per section. It has no external resources,
+  and by default no script: navigation is plain links and CSS.
 - **`manifest.json`**: the source of truth the page is generated from. It
   diffs cleanly in code review.
 
@@ -55,6 +58,9 @@ The page contains:
   - sequence diagrams, with numbered messages in order
   - state machines, with the declared initial and terminal states
   - data flows, with stores shown separately from processing
+- **Two presentations of the same analysis** (`render --mode developer`,
+  the default, or `--mode product`): implementation detail in the open, or
+  the same claims worded for readers who need behavior rather than code.
 - **An optional interactive impact graph** (`render --interactive`):
   click or keyboard-select a node to highlight its direct relationships
   and see its details.
@@ -79,6 +85,64 @@ open "$D/sample-shop/docs/features/payment-flow/index.html"   # macOS; use xdg-o
 
 With an empty excerpt file (`[]`), evidence is shown as "no excerpt"
 instead of code. In normal use Claude supplies the cited lines.
+
+## The generated page
+
+### Layout and navigation
+
+- **Overview first.** The first page answers what the feature is and where
+  to go next: name, description, repository and revision, whether the cited
+  evidence is current, key facts (components, findings, diagrams, risks,
+  unknowns, sources), the summary section, and cards linking to key
+  findings, the most severe risks, open questions and every diagram. It
+  repeats no full section.
+- **Sidebar.** Sections are grouped by kind: *Overview* (overview, scope),
+  *Architecture* (architecture, implementation, impact), *Behavior & flows*
+  (flows), *Risks & quality* (risks, testing, unknowns), *Notes* (custom),
+  *Reference* (references, history). Only groups with sections appear, and
+  each diagram a section shows is listed under it. The document keeps
+  manifest order; the sidebar sets the reading order, which the
+  Previous/Next links at the bottom of each page follow.
+- **One page at a time, chosen by the URL hash.** Every sidebar link,
+  evidence link and diagram link is a plain `#anchor`; the page that holds
+  the target is shown and highlighted in the sidebar. Refresh, bookmarks,
+  Back and Forward work, and following a claim's source to its evidence
+  entry and pressing Back returns to the claim. An unknown hash shows the
+  overview.
+- **Mobile.** Below 992px the sidebar becomes a drawer opened by the
+  **Menu** button in the top bar. It opens over the current page without
+  scrolling it, closes when you follow a link, and **Close menu** returns to
+  where you were.
+- **Keyboard.** A *Skip to content* link comes first and jumps into the
+  current page; every link, disclosure and (with `--interactive`) impact
+  node is reachable with Tab and has a visible focus ring. Smooth
+  scrolling is off with reduced motion.
+- **No script needed.** All of this is HTML and CSS (`:target` and
+  `:has()`). In a browser without `:has()`, every page is shown one after
+  another as a single static document; printing does the same.
+
+### Developer and product modes
+
+`render --mode developer` (the default) and `render --mode product` render
+the same manifest: the same claims, certainty, evidence, diagrams and
+unknowns. Only wording and what starts collapsed differ.
+
+| | `developer` | `product` |
+|---|---|---|
+| For | engineers changing or debugging the code | product engineers, architects, stakeholders who need behavior |
+| Certainty | `observed`, `inferred`, `proposed`, `unknown` badges | "Read in code", "Inferred from code", "Proposed change", "Undetermined", with the definition in the details |
+| Sources | on every claim: `file:lines` links and the cited symbol | under **Technical details** on each claim, with each source's explanation |
+| Overview card | **Where it lives**: entry points, primary files, configuration | **How it works**: the first execution flow (or sequence) as numbered steps |
+| Components | kind, parent, endpoint and dependency shown | name and summary; the rest under Technical details |
+| Relationships, files, history, derived impact | open | collapsed, with a count |
+| Code excerpts | shown | behind **Show code** |
+
+Diagram text versions start collapsed in both modes (the impact diagram's
+stays open in developer mode). Product mode never rewrites or summarizes
+manifest text: the plainer reading path comes from ordering, labels and
+disclosure, not from new claims. Use `product` when the reader wants to
+know how the feature behaves; use `developer` (the default) when they need
+to find, change or verify the code.
 
 ## How it works
 
@@ -259,12 +323,16 @@ published, diff the working copy against the existing
 ```sh
 featurelens render docs/features/payment-flow/manifest.json --repo . \
   --excerpts scratch/excerpts.json --interactive
+featurelens render docs/features/payment-flow/manifest.json --repo . \
+  --excerpts scratch/excerpts.json --mode product
 ```
 
 Rendering a document's own `manifest.json` regenerates the page without
 changing the document. `--interactive` adds keyboard-accessible node
-selection to the impact diagram. It is not stored in the manifest, so pass
-it on every render that should have it. Without it, the page has no script.
+selection to the impact diagram. `--mode` picks the
+[presentation](#developer-and-product-modes). Neither is stored in the
+manifest, so pass them on every render that should have them. Without
+`--interactive`, the page has no script.
 
 ## Command reference
 
@@ -274,7 +342,7 @@ featurelens validate <manifest.json> [--repo <dir>] [--json]
 featurelens update <manifest.json> --repo <dir> --summary <text> --out <file> \
     [--changed-file <path> ...] [--edit-manual <section-id> ...] [--acknowledge <evidence-id> ...] [--json]
 featurelens render <manifest.json> --repo <dir> --excerpts <file> \
-    [--acknowledge <evidence-id> ...] [--interactive] [--json]
+    [--acknowledge <evidence-id> ...] [--mode developer|product] [--interactive] [--json]
 featurelens git-info [--repo <dir>] [--files <path> ...]
 featurelens --help | --version
 ```
@@ -379,7 +447,8 @@ a name with `source: "git-config"`, never as a GitHub username.
   recording it (`manual-section-changed`) is refused.
 - **Manual sections are protected** by both `update` and the writer.
 - **Pages are locked down.** A Content-Security-Policy with `default-src
-  'none'` blocks loading anything. Static pages have no script;
+  'none'` blocks loading anything. Static pages, in either mode, have no
+  script (navigation is CSS only);
   interactive pages allow exactly one constant inline script by its
   SHA-256 hash, with no `'unsafe-inline'` or `'unsafe-eval'` for scripts.
   All text is escaped.
@@ -419,6 +488,15 @@ vulnerability.
   complete static document.
 - Evidence is checked by content hash, not by revision: cited code that is
   identical in another revision stays current.
+- **Navigation without script has limits.** There is no search, Escape
+  doesn't close the mobile drawer (use **Close menu** or follow a link),
+  the sidebar highlights the current page but not the section scrolled
+  to, and screen readers aren't told which sidebar link is current. The
+  browser's find-in-page searches only the page shown; print, or use a
+  browser without `:has()`, to get every page at once.
+- **Product mode is a presentation, not a translation.** It words the
+  interface and collapses detail; claim text stays as the analysis wrote
+  it, in its language.
 
 ## Development
 
@@ -431,8 +509,9 @@ npm run check:release    # all tests with Chrome required, the example, the matr
 claude plugin validate . # plugin and marketplace metadata
 ```
 
-Tests use the built-in `node:test` runner. The interactive impact graph is
-also tested in headless Chrome over the DevTools protocol, with no extra
+Tests use the built-in `node:test` runner. The interactive impact graph and
+the page layout (sidebar, hash navigation, mobile drawer, keyboard, both
+modes at 390-1440px) are also tested in headless Chrome over the DevTools protocol, with no extra
 dependencies. Without Chrome or Chromium, those tests are reported as
 **skipped**, never as passed; set `FEATURELENS_REQUIRE_BROWSER=1` (as
 `test:browser` and `check:release` do) to make a missing browser a
@@ -463,7 +542,7 @@ src/validation/      validateManifest and its layers; checkWriteGate
 src/evidence/        Reading cited source lines; createSourceRef
 src/manifest/        createManifest, recordUpdate; buildFromDraft, planUpdate; JSDoc types
 src/analysis/        Impact graph and diagram models
-src/render/          Pure HTML renderer, excerpt contract, escaping, diagrams, the impact graph script
+src/render/          Pure HTML renderer: layout and pages, overview, modes, stylesheet, excerpt contract, escaping, diagrams, the impact graph script
 src/git/             Repository, user and contributor metadata
 src/docs/, src/output/  Loading/serializing manifests; the checked writer
 src/config/          .featurelens.json

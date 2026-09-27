@@ -5,7 +5,8 @@ output safety and the HTML marker, the pure HTML renderer, the `render`
 command and Claude Code plugin, static impact, architecture,
 execution-flow, sequence, state-machine and data-flow diagrams,
 architecture layout and group boxes, the opt-in interactive impact graph,
-and the build/update workflow (`build` and `update` commands, §2 and §7).
+the build/update workflow (`build` and `update` commands, §2 and §7), and
+the documentation-app layout with developer and product modes (§6.1.5).
 Sections below name the phase that introduced each part; see
 [ROADMAP.md](ROADMAP.md). The manifest format has its own reference:
 [MANIFEST.md](MANIFEST.md).
@@ -92,7 +93,7 @@ by instruction.
 | Impact graph (render data) | `src/analysis/impact-graph.js` → `buildImpactGraph`, `dependencyEnds` | implemented |
 | Diagram models | `src/analysis/diagram-model.js` → `impactDiagram`, `architectureDiagram`, `buildDiagram` (§6.1.1); `src/analysis/flow-models.js` → `executionFlowDiagram`, `sequenceDiagram`, `stateMachineDiagram`, `dataFlowDiagram` (§6.1.2) | implemented |
 | Manifest and excerpt file loading, serialization | `src/docs/store.js` → `loadManifestFile`, `loadExcerptFile`, `serializeManifest` | implemented |
-| HTML rendering | `src/render/render.js` → `render(manifest, { excerpts, stale }, { interactive? })`; `src/render/inputs.js` (excerpt contract); `src/render/escape.js`; `src/render/diagram.js`, `src/render/flow-diagram.js` (static SVG); `src/render/interactive.js` (the impact graph script, its CSP hash and style) | implemented (static by default; all diagram types; opt-in interactive impact graph, §6.1.4) |
+| HTML rendering | `src/render/render.js` → `render(manifest, { excerpts, stale }, { interactive?, mode? })`; `src/render/inputs.js` (excerpt contract); `src/render/escape.js`; `src/render/diagram.js`, `src/render/flow-diagram.js` (static SVG); `src/render/interactive.js` (the impact graph script, its CSP hash and style); `src/render/layout.js` (pages, sidebar, top bar, page rules), `src/render/overview.js` (overview page), `src/render/claims.js` (claims and sources), `src/render/presentation.js` (modes), `src/render/style.js` (stylesheet) | implemented (static by default; all diagram types; opt-in interactive impact graph, §6.1.4; documentation layout and modes, §6.1.5) |
 | HTML marker (create, parse, hash-check) | `src/output/marker.js` → `stampDocument`, `readMarker`, `markerLine`, `hashDocument` | implemented |
 | Existing-output safety check | `src/output/existing.js` → `checkExistingOutput`, `compareHistory` | implemented |
 | File system output | `src/output/writer.js` → `writeFeatureDocument` (index.html + manifest.json), `writeDocumentation` (other files), `writeWorkingManifest` (`build`/`update` output, refused inside the output directory) | implemented |
@@ -115,7 +116,7 @@ bin/featurelens.js            ← the only place that wires modules together
   ├─ analysis/impact-graph    (pure; imports nothing)
   ├─ analysis/diagram-model ──▶ analysis/impact-graph   (pure)
   ├─ analysis/flow-models ──▶ analysis/diagram-model   (pure)
-  ├─ render/render ──▶ render/{escape,inputs,diagram,flow-diagram,interactive}, analysis/{impact-graph,diagram-model,flow-models}   (pure; node:crypto only)
+  ├─ render/render ──▶ render/{escape,inputs,diagram,flow-diagram,interactive,layout,overview,claims,presentation,style}, analysis/{impact-graph,diagram-model,flow-models}   (pure; node:crypto only)
   ├─ output/writer ──▶ output/existing ──▶ output/marker   (existing, marker: pure)
   │                └─▶ docs/store (serializeManifest)
   ├─ git/metadata
@@ -354,7 +355,8 @@ writes it.
 other processes, uses no network, clock, randomness or environment, and
 never parses existing HTML. Its only imports are `render/escape.js`,
 `render/inputs.js`, `render/diagram.js`, `render/flow-diagram.js`,
-`render/interactive.js`,
+`render/interactive.js`, `render/layout.js`, `render/overview.js`,
+`render/claims.js`, `render/presentation.js`, `render/style.js`,
 `analysis/impact-graph.js`, `analysis/diagram-model.js`,
 `analysis/flow-models.js` and `node:crypto`
 (`test/render.test.js` checks this and traps `fs`, `child_process`, `Date`,
@@ -954,10 +956,95 @@ the details panel lists them. SVG focus outlines depend on the browser's
 support for `outline` on SVG elements (current Chrome, Firefox and
 Safari).
 
+#### 6.1.5 Documentation layout and presentation modes
+
+The page is a small documentation app. What it claims is unchanged: the
+same sections, claims, certainty, evidence, diagrams and derived impact,
+from the same manifest, with no schema change. Only how they are arranged,
+worded and disclosed changed.
+
+**Pages.** `render` wraps the document in a shell (`layout.js`): skip
+links, a top bar (`role="banner"`: product name, feature, repository and
+branch, mode), a sidebar, `<main>` with the pages, and the footer. Page 0
+is the overview (`overview.js`); every other section is a page of its own,
+in manifest order, followed by the unknowns and evidence appendices when
+no generated section of that kind exists. The first section is embedded in
+page 0 when it is an `overview` section. Each page is
+`<div class="page" id="page-N">` holding one unchanged
+`<section id="section-…">` (or appendix), then previous/next links.
+
+**Sidebar and reading order.** Section kinds map to fixed groups:
+overview (overview, scope), architecture (architecture, implementation,
+impact), behavior (flows), quality (risks, testing, unknowns), notes
+(custom) and reference (references, history). A group appears only when a
+page is in it; the sidebar lists groups in that order, pages in document
+order within a group, and under each page the diagrams it anchors. That
+reading order drives previous/next. The document order stays manifest
+order, as before.
+
+**Navigation without script.** The URL hash picks the page. For each page
+index N the stylesheet gets rules of the form
+
+```css
+body:has(#page-N:target,#page-N :target,#menu-N:target) #page-N{display:block}
+```
+
+(and the same selector for the sidebar highlight, the skip link and, below
+62rem, the menu button), inside `@supports selector(:has(*))` after
+`.page{display:none}`. Page 0 also matches when nothing in a page, and no
+drawer link, is the target, so no hash or an unknown one shows the
+overview. Any anchor inside a page (a finding, a diagram, an evidence
+entry) therefore opens its page, and history, refresh and bookmarks work
+as for any anchor. Only ids of the form `page-N`, `menu-N` and `back-N`
+reach the stylesheet; manifest ids never do, so manifest text cannot
+affect CSS (`test/layout.test.js` checks that hostile titles and ids
+leave the stylesheet byte for byte the same). Without `:has()` the whole
+block is dropped and every page shows, one after another: the static
+document. Print shows every page.
+
+**Mobile drawer.** Below 62rem the sidebar's links are hidden. The top
+bar shows one menu link, the current page's: `#menu-N`. `menu-N` is a
+"Close menu" link at the top of the sidebar; when it is the target it
+becomes a fixed header and opens the sidebar next to it as a fixed
+drawer, and page N stays current. It links to `#back-N`, a fixed-position
+empty anchor at the top of page N, so neither opening nor closing
+scrolls. Following any link in the drawer changes the target and so
+closes it. Fragment navigation moves the browser's sequential focus
+starting point to the target, so Tab after opening the drawer reaches its
+first link, and Tab after the skip link (`#back-N`) reaches page N's
+content.
+
+**Modes** (`presentation.js`, `render(…, { mode })`, `render --mode`).
+`developer` (default) and `product` share every code path; the mode picks
+labels (certainty words, group names, list headings) and which details
+start collapsed in `<details>`: in product mode, each claim's sources and
+certainty definition (Technical details), component details,
+relationships, relevant files, declared and derived impact lists, history
+and code excerpts. The overview shows "Where it lives" (entry points,
+primary files, configuration components and configuration evidence) in
+developer mode, and "How it works" in product mode: the first execution
+flow's steps breadth-first from `start`, with branch conditions (else the
+first sequence's messages in order). Diagram text versions are collapsed
+in both modes, except the impact diagram's in developer mode, which the
+interactive graph's text lies next to. No manifest text is rewritten,
+shortened or added to. `test/layout.test.js` checks that both modes
+contain every claim's text, the same source links and the same evidence
+anchors.
+
+**What did not change.** `render` with no options still returns a page
+with no script and the same CSP; `--interactive` still adds exactly the
+impact graph script (the interactive tests compare the two renders
+unchanged). Section ids and classes, claim heads, source links
+(`#evidence-…`), evidence anchors, diagram markup and the impact graph's
+data references are as before, so links into a page from elsewhere keep
+working; findings, components, risks, unknowns and diagrams gained anchors
+of their own. The only elements added
+to the allowed set are `details`, `summary` and `strong`.
+
 ### 6.2 The `render` command
 
 ```
-featurelens render <manifest.json> --repo <dir> --excerpts <file> [--acknowledge <evidence-id> ...] [--interactive] [--json]
+featurelens render <manifest.json> --repo <dir> --excerpts <file> [--acknowledge <evidence-id> ...] [--mode developer|product] [--interactive] [--json]
 ```
 
 **Boundary.** Excerpts cross from Claude Code to FeatureLens as a file:
@@ -1119,7 +1206,9 @@ The update itself (`featurelens update`, §2):
 - Nothing in `src/` or `bin/` imports a network module or contains an
   external URL (`test/boundaries.test.js`). Generated HTML escapes all
   data, links only to anchors inside the document, and forbids loading
-  anything with a Content-Security-Policy (`test/render.test.js`). It has
+  anything with a Content-Security-Policy (`test/render.test.js`). Its
+  navigation is CSS built from page indexes, never from manifest text
+  (§6.1.5). It has
   no scripts, except the one constant impact graph script of
   `render --interactive`, which the CSP allows by hash and nothing else;
   it embeds no data and builds no markup from strings (§6.1.4,
@@ -1142,6 +1231,9 @@ The update itself (`featurelens update`, §2):
 | Excerpts are caller-supplied `{ evidenceId, file, startLine, endLine, text }`, checked against `snippetHash` | Renderer reads source; excerpts stored in the manifest; id-to-text map without a check | Keeps the renderer pure and the manifest free of copied code. The hash check means a wrong or outdated excerpt can't be presented as the cited code. |
 | Manual sections never show generated analysis data | Render a manual section's `kind` data like a generated one | Keeps "written by a person" literally true for everything in a manual section. |
 | Static renderer with no scripts | Inline JS for interactivity now | Nothing in this phase needs script. No script means no script-context escaping and a strict CSP. |
+| Documentation-app navigation with `:target` and `:has()`, no script | A constant navigation script allowed by hash; a SPA framework; one long page with a sidebar | Static pages keep having no script, so the security model and CSP don't change, and the layout works where scripts are blocked. The hash already gives history, refresh and bookmarks. The cost is no search, no scroll-position highlight and no Escape for the drawer. One long page couldn't give the overview-first reading path. |
+| One page per section; the sidebar groups by kind, the document keeps manifest order | Merge sections into topic pages; reorder the document by group | A section is the author's unit and its anchors are stable. Grouping only in the sidebar keeps manifest order (which tests and authors rely on) and still gives a coherent reading path. |
+| Presentation modes choose labels and disclosure, not content | Separate renderers; summarizing or rewording claims for product readers | Both modes stay a view of the same evidence-backed claims; rewording would be new, unevidenced text. |
 | Interactive impact graph is opt-in, progressive enhancement of the static diagram (Phase 3D) | Always on; a separate interactive renderer; a graph library | Default output stays byte for byte the same, and the static diagram and text version remain the complete account when script is off. One code path draws both. |
 | One constant inline script allowed by its SHA-256 hash | A nonce; `'unsafe-inline'`; a separate `.js` asset | A nonce is either constant or random in a static, deterministic file; `'unsafe-inline'` would also allow injected handlers; an asset would change the writer's two-file contract and its confinement. A constant script gives a constant hash. |
 | The script reads index-based `data-*` references and copies the escaped text version | Embed the model as JSON in a `<script type="application/json">` | No second copy of manifest data and no script-context escaping; manifest strings never reach an attribute or string the script interprets. |

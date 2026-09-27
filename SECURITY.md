@@ -76,7 +76,9 @@ current (see "Limits" below).
   `base-uri 'none'` and `form-action 'none'`, so it cannot load scripts,
   styles, fonts, frames or other resources from anywhere, or submit forms.
   Images are allowed only as `data:` URIs.
-- Static pages (the default) contain no script.
+- Static pages (the default, in either `--mode`) contain no script. Page
+  navigation, the sidebar and the mobile drawer are CSS rules built only
+  from page indexes; no manifest text reaches the stylesheet.
 - Interactive pages (`render --interactive`) contain exactly one constant
   inline script, allowed by its SHA-256 hash in `script-src`. There is no
   `'unsafe-inline'` or `'unsafe-eval'` for scripts. The script builds no

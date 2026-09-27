@@ -46,6 +46,9 @@ First public release. Tool version 1.0.0, manifest schema 1.0.0.
   and writes it through the checked writer. `--interactive` adds the
   interactive impact graph; `--acknowledge` accepts stale evidence cited
   only by manual sections.
+- `render --mode developer|product` chooses the presentation (default
+  `developer`); an unknown mode is a usage error. The JSON report includes
+  `mode`.
 - `git-info`: repository, user and contributor metadata as JSON.
 - Optional `.featurelens.json` for the output directory and attribution
   (emails are off by default).
@@ -63,6 +66,15 @@ First public release. Tool version 1.0.0, manifest schema 1.0.0.
   sequence diagrams, state machines and data flows.
 - Opt-in interactive impact graph: keyboard-accessible node selection that
   highlights direct relationships and shows node details.
+- A documentation-app layout with no script: an overview page with key
+  facts and links onward, a sidebar grouping sections by kind, one page
+  per section chosen by the URL hash (refresh, Back and bookmarks work),
+  previous/next links, a mobile drawer and a skip link. Without `:has()`
+  support, and in print, every page is shown.
+- Two presentation modes, `render --mode developer` (default) and
+  `--mode product`: the same claims, certainty and evidence, with
+  implementation detail open or collapsed under "Technical details".
+- Evidence grouped by file; distinct risk, unknown and evidence cards.
 - Deterministic output: the same manifest and excerpts give the same page.
 - Narrow-screen layout and dark mode.
 
@@ -83,8 +95,10 @@ First public release. Tool version 1.0.0, manifest schema 1.0.0.
 
 ### Testing and evaluation
 
-- 434 unit, integration and CLI tests with `node:test`, including 11
-  headless Chrome tests of the interactive impact graph.
+- 483 unit, integration and CLI tests with `node:test`, including 32
+  headless Chrome tests of the interactive impact graph and of the page
+  layout (sidebar, hash navigation, mobile drawer, keyboard, both modes at
+  390-1440px, light and dark).
 - End-to-end evaluation matrix (`eval/run.js`, 539 expectations) over the
   sample project, expressjs/express at three tags, and generated
   repositories up to 1,000 components ([docs/EVALUATION.md](docs/EVALUATION.md)).

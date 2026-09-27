@@ -594,6 +594,8 @@ if (opts.browser) {
             expect(`${tag}: ${p.interactive ? 'one script, enhanced' : 'no script'}`, p.interactive ? s.scripts === 1 && s.nodes > 0 : s.scripts === 0 && s.nodes === 0, JSON.stringify(s));
             const entry = { case: p.case, page: tag, loadMs, ...s };
             if (p.interactive) {
+              // The impact diagram is on its section's page: open it by its hash, as a reader would.
+              await b.eval(`location.hash = document.querySelector('div.impact-graph').closest('section').id`);
               // Select the busiest node by click, then Escape; time the handler in the page.
               const sel = await b.eval(`(() => {
                 const root = document.querySelector('div.impact-graph');
@@ -617,9 +619,9 @@ if (opts.browser) {
               const after = await b.eval(`(() => { const root = document.querySelector('div.impact-graph'); return { hidden: root.querySelector('.impact-details').hidden, sel: root.classList.contains('has-selection'), focus: document.activeElement?.dataset?.node ?? null }; })()`);
               expect(`${tag}: Escape clears the selection and keeps focus on the node`, after.hidden && !after.sel && after.focus === sel.node, JSON.stringify(after));
             }
-            await b.eval('window.scrollTo(0, 0)');
+            await b.eval(`location.hash = ''; window.scrollTo(0, 0)`);
             await b.screenshot(path.join(shots, `${p.case}--${path.basename(p.file, '.html')}-${width}-${dark ? 'dark' : 'light'}.png`));
-            const first = await b.eval(`(() => { const f = document.querySelector('figure.viz, div.impact-graph, .diagram-scroll'); if (!f) return false; f.scrollIntoView({ block: 'start' }); return true; })()`);
+            const first = await b.eval(`(() => { const f = document.querySelector('figure.viz, div.impact-graph, .diagram-scroll'); if (!f) return false; const s = f.closest('section[id]'); if (s) location.hash = s.id; f.scrollIntoView({ block: 'start' }); return true; })()`);
             if (first) await b.screenshot(path.join(shots, `${p.case}--${path.basename(p.file, '.html')}-${width}-${dark ? 'dark' : 'light'}-diagram.png`));
             browser.pages.push(entry);
           }
